@@ -1,0 +1,660 @@
+import { useEffect, useMemo, useState } from 'react';
+import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
+  Compass,
+  GripVertical,
+  Heart,
+  HeartOff,
+  LogOut,
+  MapPin,
+  Navigation,
+  Plus,
+  RefreshCw,
+  Star,
+  User,
+  WifiOff,
+  X,
+} from 'lucide-react';
+import { defaultCategories } from './data/categories';
+import { samplePlaces } from './data/samplePlaces';
+import { hasSupabaseConfig, supabase } from './lib/supabase';
+
+const LOCAL_PLACES_KEY = 'hainan-guide-places';
+const LOCAL_FAVORITES_KEY = 'hainan-guide-favorites';
+const LOCAL_CATEGORY_KEY = 'hainan-guide-category-order';
+const SANYA_CENTER = [18.2218, 109.515];
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+function readJson(key, fallback) {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJson(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function makeTempUser() {
+  return { id: 'local-user', email: 'offline@hainan.guide' };
+}
+
+function SortableCategory({ category, activeCategory, count, onSelect }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: category,
+  });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  const active = activeCategory === category;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-2 rounded-lg border px-2 py-2 shadow-sm transition ${
+        active ? 'border-reef bg-teal-50' : 'border-slate-200 bg-white'
+      } ${isDragging ? 'opacity-70' : ''}`}
+    >
+      <button
+        type="button"
+        className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-500 hover:bg-slate-100"
+        aria-label={`Drag ${category}`}
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical size={17} />
+      </button>
+      <button
+        type="button"
+        onClick={() => onSelect(category)}
+        className="flex min-w-0 flex-1 items-center justify-between gap-2 text-left"
+      >
+        <span className="truncate text-sm font-semibold text-slate-800">{category}</span>
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{count}</span>
+      </button>
+    </div>
+  );
+}
+
+function AuthPanel({ onSession }) {
+  const [mode, setMode] = useState('signIn');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+
+  async function submit(event) {
+    event.preventDefault();
+    setBusy(true);
+    setMessage('');
+
+    if (!hasSupabaseConfig) {
+      onSession({ user: makeTempUser(), localOnly: true });
+      setBusy(false);
+      return;
+    }
+
+    const action =
+      mode === 'signUp'
+        ? supabase.auth.signUp({ email, password })
+        : supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await action;
+    if (error) setMessage(error.message);
+    else if (data.session) onSession(data.session);
+    else setMessage('Check your email to confirm registration, then sign in.');
+    setBusy(false);
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-50">
+      <section className="mx-auto grid min-h-screen max-w-6xl items-center gap-8 px-4 py-8 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="space-y-6">
+          <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-white px-3 py-1 text-sm font-semibold text-reef">
+            <Compass size={16} />
+            Dadonghai, Sanya
+          </div>
+          <div className="space-y-4">
+            <h1 className="max-w-3xl text-4xl font-black leading-tight text-slate-950 sm:text-6xl">
+              Hainan guide for beaches, food, hotels, and quiet corners.
+            </h1>
+            <p className="max-w-2xl text-lg leading-8 text-slate-600">
+              Save favorites, add personal places, reorder your travel menu, and keep the guide available offline.
+            </p>
+          </div>
+          <div className="grid max-w-2xl gap-3 sm:grid-cols-3">
+            {['15 starter places', 'Amap deep links', 'Offline PWA'].map((item) => (
+              <div key={item} className="rounded-lg border border-slate-200 bg-white p-4 font-semibold text-slate-700">
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <form onSubmit={submit} className="rounded-lg border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/70">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-black text-slate-950">{mode === 'signUp' ? 'Create account' : 'Sign in'}</h2>
+              <p className="text-sm text-slate-500">
+                {hasSupabaseConfig ? 'Use Supabase email/password auth.' : 'Supabase env is missing; local demo mode will open.'}
+              </p>
+            </div>
+            <User className="text-reef" />
+          </div>
+          <label className="mb-3 block">
+            <span className="mb-1 block text-sm font-semibold text-slate-700">Email</span>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-reef focus:ring-2 focus:ring-teal-100"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="you@example.com"
+              required={hasSupabaseConfig}
+            />
+          </label>
+          <label className="mb-4 block">
+            <span className="mb-1 block text-sm font-semibold text-slate-700">Password</span>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-reef focus:ring-2 focus:ring-teal-100"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="At least 6 characters"
+              required={hasSupabaseConfig}
+              minLength={hasSupabaseConfig ? 6 : undefined}
+            />
+          </label>
+          {message && <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{message}</p>}
+          <button
+            type="submit"
+            disabled={busy}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-reef px-4 py-3 font-bold text-white hover:bg-teal-800 disabled:opacity-60"
+          >
+            {busy ? <RefreshCw className="animate-spin" size={18} /> : <Navigation size={18} />}
+            {mode === 'signUp' ? 'Create account' : hasSupabaseConfig ? 'Sign in' : 'Open local demo'}
+          </button>
+          <button
+            type="button"
+            className="mt-3 w-full rounded-lg px-4 py-2 text-sm font-semibold text-reef hover:bg-teal-50"
+            onClick={() => setMode(mode === 'signUp' ? 'signIn' : 'signUp')}
+          >
+            {mode === 'signUp' ? 'Already have an account?' : 'Need an account?'}
+          </button>
+        </form>
+      </section>
+    </main>
+  );
+}
+
+function PlaceCard({ place, favorite, onFavorite, onShowMap }) {
+  const amapUrl = `https://uri.amap.com/marker?position=${place.lng},${place.lat}&name=${encodeURIComponent(place.chinese_name || place.name)}`;
+  return (
+    <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <img src={place.photo_url} alt={place.name} className="h-44 w-full object-cover" loading="lazy" />
+      <div className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wide text-hibiscus">{place.category}</p>
+            <h3 className="truncate text-lg font-black text-slate-950">{place.name}</h3>
+            <p className="text-sm font-semibold text-slate-500">{place.chinese_name}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onFavorite(place.id)}
+            className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border ${
+              favorite ? 'border-rose-200 bg-rose-50 text-rose-600' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+            }`}
+            aria-label={favorite ? 'Remove favorite' : 'Add favorite'}
+          >
+            {favorite ? <Heart size={18} fill="currentColor" /> : <HeartOff size={18} />}
+          </button>
+        </div>
+        <p className="text-sm leading-6 text-slate-600">{place.description}</p>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href={amapUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded-lg bg-reef px-3 py-2 text-sm font-bold text-white hover:bg-teal-800"
+          >
+            <Navigation size={16} />
+            Open in Amap
+          </a>
+          <button
+            type="button"
+            onClick={() => onShowMap(place)}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+          >
+            <MapPin size={16} />
+            Show on map
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose }) {
+  return (
+    <div className="fixed inset-0 z-[1000] grid place-items-center bg-slate-950/50 p-4">
+      <form onSubmit={onSubmit} className="max-h-[92vh] w-full max-w-2xl overflow-auto rounded-lg bg-white p-5 shadow-2xl">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-xl font-black text-slate-950">Add a place</h2>
+          <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg hover:bg-slate-100">
+            <X size={19} />
+          </button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Input label="Name" value={draft.name} onChange={(value) => onChange({ name: value })} required />
+          <Input label="Chinese name" value={draft.chinese_name} onChange={(value) => onChange({ chinese_name: value })} />
+          <label className="block">
+            <span className="mb-1 block text-sm font-semibold text-slate-700">Category</span>
+            <select
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-reef focus:ring-2 focus:ring-teal-100"
+              value={draft.category}
+              onChange={(event) => onChange({ category: event.target.value })}
+            >
+              {categories.filter((category) => category !== 'Favorites').map((category) => (
+                <option key={category}>{category}</option>
+              ))}
+            </select>
+          </label>
+          <Input label="Photo URL" value={draft.photo_url} onChange={(value) => onChange({ photo_url: value })} required />
+          <Input label="Latitude" type="number" step="any" value={draft.lat} onChange={(value) => onChange({ lat: value })} required />
+          <Input label="Longitude" type="number" step="any" value={draft.lng} onChange={(value) => onChange({ lng: value })} required />
+        </div>
+        <label className="mt-3 block">
+          <span className="mb-1 block text-sm font-semibold text-slate-700">Description</span>
+          <textarea
+            className="min-h-28 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-reef focus:ring-2 focus:ring-teal-100"
+            value={draft.description}
+            onChange={(event) => onChange({ description: event.target.value })}
+            required
+          />
+        </label>
+        <button type="submit" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-reef px-4 py-3 font-bold text-white hover:bg-teal-800">
+          <Plus size={18} />
+          Save place
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function Input({ label, value, onChange, type = 'text', ...props }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-sm font-semibold text-slate-700">{label}</span>
+      <input
+        className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-reef focus:ring-2 focus:ring-teal-100"
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        {...props}
+      />
+    </label>
+  );
+}
+
+function MapClickHandler({ onPick }) {
+  useMapEvents({
+    click(event) {
+      onPick(event.latlng);
+    },
+  });
+  return null;
+}
+
+function MapFocus({ place }) {
+  const map = useMapEvents({});
+  useEffect(() => {
+    if (place) map.setView([place.lat, place.lng], 15, { animate: true });
+  }, [map, place]);
+  return null;
+}
+
+function GuideApp({ session, onSignOut }) {
+  const user = session.user;
+  const [places, setPlaces] = useState(samplePlaces);
+  const [favorites, setFavorites] = useState([]);
+  const [categoryOrder, setCategoryOrder] = useState(defaultCategories);
+  const [activeCategory, setActiveCategory] = useState('Favorites');
+  const [showForm, setShowForm] = useState(false);
+  const [selectedPlace, setSelectedPlace] = useState(null);
+  const [notice, setNotice] = useState('');
+  const [draft, setDraft] = useState(() => emptyDraft());
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
+  useEffect(() => {
+    loadData();
+  }, [user.id]);
+
+  async function loadData() {
+    if (!hasSupabaseConfig || session.localOnly) {
+      const localPlaces = readJson(LOCAL_PLACES_KEY, []);
+      setPlaces([...samplePlaces, ...localPlaces]);
+      setFavorites(readJson(LOCAL_FAVORITES_KEY, []));
+      setCategoryOrder(readJson(LOCAL_CATEGORY_KEY, defaultCategories));
+      return;
+    }
+
+    const [{ data: remotePlaces }, { data: remoteFavorites }, { data: profile }] = await Promise.all([
+      supabase.from('places').select('*').order('created_at', { ascending: false }),
+      supabase.from('favorites').select('place_id').eq('user_id', user.id),
+      supabase.from('profiles').select('category_order').eq('id', user.id).maybeSingle(),
+    ]);
+    setPlaces(remotePlaces?.length ? remotePlaces : samplePlaces);
+    setFavorites(remoteFavorites?.map((row) => row.place_id) || []);
+    setCategoryOrder(profile?.category_order?.length ? profile.category_order : defaultCategories);
+  }
+
+  const visiblePlaces = useMemo(() => {
+    if (activeCategory === 'Favorites') return places.filter((place) => favorites.includes(place.id));
+    return places.filter((place) => place.category === activeCategory);
+  }, [activeCategory, favorites, places]);
+
+  const counts = useMemo(() => {
+    return categoryOrder.reduce((acc, category) => {
+      acc[category] = category === 'Favorites'
+        ? favorites.length
+        : places.filter((place) => place.category === category).length;
+      return acc;
+    }, {});
+  }, [categoryOrder, favorites, places]);
+
+  async function toggleFavorite(placeId) {
+    const favorite = favorites.includes(placeId);
+    const next = favorite ? favorites.filter((id) => id !== placeId) : [...favorites, placeId];
+    setFavorites(next);
+
+    if (!hasSupabaseConfig || session.localOnly) {
+      writeJson(LOCAL_FAVORITES_KEY, next);
+      return;
+    }
+    if (favorite) await supabase.from('favorites').delete().eq('user_id', user.id).eq('place_id', placeId);
+    else await supabase.from('favorites').insert({ user_id: user.id, place_id: placeId });
+  }
+
+  async function saveCategoryOrder(nextOrder) {
+    setCategoryOrder(nextOrder);
+    if (!hasSupabaseConfig || session.localOnly) {
+      writeJson(LOCAL_CATEGORY_KEY, nextOrder);
+      return;
+    }
+    await supabase.from('profiles').upsert({ id: user.id, email: user.email, category_order: nextOrder });
+  }
+
+  async function addPlace(event) {
+    event.preventDefault();
+    const place = {
+      id: crypto.randomUUID(),
+      name: draft.name.trim(),
+      chinese_name: draft.chinese_name.trim(),
+      category: draft.category,
+      description: draft.description.trim(),
+      photo_url: draft.photo_url.trim(),
+      lat: Number(draft.lat),
+      lng: Number(draft.lng),
+      is_public: true,
+      user_id: user.id,
+    };
+
+    const nextPlaces = [place, ...places];
+    setPlaces(nextPlaces);
+    setShowForm(false);
+    setDraft(emptyDraft());
+    setActiveCategory(place.category);
+
+    if (!hasSupabaseConfig || session.localOnly) {
+      const ownPlaces = readJson(LOCAL_PLACES_KEY, []);
+      writeJson(LOCAL_PLACES_KEY, [place, ...ownPlaces]);
+      setNotice('Place saved locally. Connect Supabase to sync across devices.');
+      return;
+    }
+
+    const { error } = await supabase.from('places').insert(place);
+    setNotice(error ? error.message : 'Place added.');
+  }
+
+  function beginMapAdd(latlng) {
+    setDraft({ ...emptyDraft(), lat: latlng.lat.toFixed(6), lng: latlng.lng.toFixed(6) });
+    setShowForm(true);
+  }
+
+  function openPlaceOnMap(place) {
+    setSelectedPlace(place);
+    document.getElementById('global-map')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-reef text-white">
+              <Compass size={22} />
+            </div>
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-black text-slate-950">Hainan Guide</h1>
+              <p className="truncate text-xs text-slate-500">{user.email}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {!hasSupabaseConfig && (
+              <span className="hidden items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 sm:inline-flex">
+                <WifiOff size={14} />
+                Local demo
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowForm(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-reef px-3 py-2 text-sm font-bold text-white hover:bg-teal-800"
+            >
+              <Plus size={17} />
+              Add
+            </button>
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"
+              aria-label="Sign out"
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto grid max-w-7xl gap-4 px-4 py-4 lg:grid-cols-[280px_1fr]">
+        <aside className="lg:sticky lg:top-20 lg:self-start">
+          <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="mb-3 flex items-center justify-between gap-2 px-1">
+              <h2 className="text-sm font-black uppercase text-slate-500">Menu</h2>
+              <Star size={16} className="text-mango" fill="currentColor" />
+            </div>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={({ active, over }) => {
+                if (!over || active.id === over.id) return;
+                const oldIndex = categoryOrder.indexOf(active.id);
+                const newIndex = categoryOrder.indexOf(over.id);
+                saveCategoryOrder(arrayMove(categoryOrder, oldIndex, newIndex));
+              }}
+            >
+              <SortableContext items={categoryOrder} strategy={verticalListSortingStrategy}>
+                <div className="space-y-2">
+                  {categoryOrder.map((category) => (
+                    <SortableCategory
+                      key={category}
+                      category={category}
+                      activeCategory={activeCategory}
+                      count={counts[category] || 0}
+                      onSelect={setActiveCategory}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </div>
+        </aside>
+
+        <section className="space-y-4">
+          {notice && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-semibold text-teal-900">
+              {notice}
+              <button onClick={() => setNotice('')} className="grid h-7 w-7 place-items-center rounded-md hover:bg-teal-100">
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-hibiscus">{activeCategory}</p>
+              <h2 className="text-2xl font-black text-slate-950">
+                {visiblePlaces.length ? `${visiblePlaces.length} places` : 'No places yet'}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveCategory('Favorites')}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+            >
+              <Heart size={16} />
+              Favorites
+            </button>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {visiblePlaces.map((place) => (
+              <PlaceCard
+                key={place.id}
+                place={place}
+                favorite={favorites.includes(place.id)}
+                onFavorite={toggleFavorite}
+                onShowMap={openPlaceOnMap}
+              />
+            ))}
+          </div>
+
+          <section id="global-map" className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
+              <div>
+                <h2 className="text-lg font-black text-slate-950">Global map</h2>
+                <p className="text-sm text-slate-500">Click anywhere on the map to add a place at that location.</p>
+              </div>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{places.length} markers</span>
+            </div>
+            <div className="h-[520px]">
+              <MapContainer center={selectedPlace ? [selectedPlace.lat, selectedPlace.lng] : SANYA_CENTER} zoom={13} scrollWheelZoom>
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <MapClickHandler onPick={beginMapAdd} />
+                <MapFocus place={selectedPlace} />
+                {places.map((place) => (
+                  <Marker key={place.id} position={[place.lat, place.lng]}>
+                    <Popup>
+                      <strong>{place.name}</strong>
+                      <br />
+                      {place.chinese_name}
+                      <br />
+                      {place.category}
+                    </Popup>
+                  </Marker>
+                ))}
+                {selectedPlace && (
+                  <Marker position={[selectedPlace.lat, selectedPlace.lng]}>
+                    <Popup>
+                      <strong>{selectedPlace.name}</strong>
+                    </Popup>
+                  </Marker>
+                )}
+              </MapContainer>
+            </div>
+          </section>
+        </section>
+      </main>
+
+      {showForm && (
+        <AddPlaceForm
+          draft={draft}
+          categories={categoryOrder}
+          onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))}
+          onSubmit={addPlace}
+          onClose={() => setShowForm(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function emptyDraft() {
+  return {
+    name: '',
+    chinese_name: '',
+    category: 'Restaurants & Cafes',
+    photo_url: 'https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=1200&q=80',
+    description: '',
+    lat: '18.221800',
+    lng: '109.515000',
+  };
+}
+
+export default function App() {
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(hasSupabaseConfig);
+
+  useEffect(() => {
+    if (!hasSupabaseConfig) return;
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setLoading(false);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  async function signOut() {
+    if (hasSupabaseConfig && !session?.localOnly) await supabase.auth.signOut();
+    setSession(null);
+  }
+
+  if (loading) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-slate-50 text-reef">
+        <RefreshCw className="animate-spin" size={28} />
+      </div>
+    );
+  }
+
+  if (!session) return <AuthPanel onSession={setSession} />;
+  return <GuideApp session={session} onSignOut={signOut} />;
+}
