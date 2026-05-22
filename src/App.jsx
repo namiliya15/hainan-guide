@@ -81,7 +81,7 @@ function SortableCategory({ category, activeCategory, count, onSelect }) {
       <button
         type="button"
         className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-500 hover:bg-slate-100"
-        aria-label={`Drag ${category}`}
+        aria-label={`Перетащить ${category}`}
         {...attributes}
         {...listeners}
       >
@@ -124,7 +124,7 @@ function AuthPanel({ onSession }) {
     const { data, error } = await action;
     if (error) setMessage(error.message);
     else if (data.session) onSession(data.session);
-    else setMessage('Check your email to confirm registration, then sign in.');
+    else setMessage('Проверьте почту для подтверждения регистрации, затем войдите.');
     setBusy(false);
   }
 
@@ -134,18 +134,18 @@ function AuthPanel({ onSession }) {
         <div className="space-y-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-white px-3 py-1 text-sm font-semibold text-reef">
             <Compass size={16} />
-            Dadonghai, Sanya
+            Дадунхай, Санья
           </div>
           <div className="space-y-4">
             <h1 className="max-w-3xl text-4xl font-black leading-tight text-slate-950 sm:text-6xl">
-              Hainan guide for beaches, food, hotels, and quiet corners.
+              Путеводитель по Хайнаню: пляжи, еда, отели и тихие уголки.
             </h1>
             <p className="max-w-2xl text-lg leading-8 text-slate-600">
-              Save favorites, add personal places, reorder your travel menu, and keep the guide available offline.
+              Сохраняйте избранное, добавляйте свои места, меняйте порядок меню и пользуйтесь гидом офлайн.
             </p>
           </div>
           <div className="grid max-w-2xl gap-3 sm:grid-cols-3">
-            {['15 starter places', 'Amap deep links', 'Offline PWA'].map((item) => (
+            {['15 стартовых мест', 'Ссылки на Amap', 'Офлайн PWA'].map((item) => (
               <div key={item} className="rounded-lg border border-slate-200 bg-white p-4 font-semibold text-slate-700">
                 {item}
               </div>
@@ -156,9 +156,9 @@ function AuthPanel({ onSession }) {
         <form onSubmit={submit} className="rounded-lg border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/70">
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-xl font-black text-slate-950">{mode === 'signUp' ? 'Create account' : 'Sign in'}</h2>
+              <h2 className="text-xl font-black text-slate-950">{mode === 'signUp' ? 'Создать аккаунт' : 'Вход'}</h2>
               <p className="text-sm text-slate-500">
-                {hasSupabaseConfig ? 'Use Supabase email/password auth.' : 'Supabase env is missing; local demo mode will open.'}
+                {hasSupabaseConfig ? 'Используйте email и пароль Supabase.' : 'Переменные Supabase не заданы, будет открыт локальный демо-режим.'}
               </p>
             </div>
             <User className="text-reef" />
@@ -175,13 +175,13 @@ function AuthPanel({ onSession }) {
             />
           </label>
           <label className="mb-4 block">
-            <span className="mb-1 block text-sm font-semibold text-slate-700">Password</span>
+            <span className="mb-1 block text-sm font-semibold text-slate-700">Пароль</span>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-reef focus:ring-2 focus:ring-teal-100"
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="At least 6 characters"
+              placeholder="Не менее 6 символов"
               required={hasSupabaseConfig}
               minLength={hasSupabaseConfig ? 6 : undefined}
             />
@@ -193,14 +193,14 @@ function AuthPanel({ onSession }) {
             className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-reef px-4 py-3 font-bold text-white hover:bg-teal-800 disabled:opacity-60"
           >
             {busy ? <RefreshCw className="animate-spin" size={18} /> : <Navigation size={18} />}
-            {mode === 'signUp' ? 'Create account' : hasSupabaseConfig ? 'Sign in' : 'Open local demo'}
+            {mode === 'signUp' ? 'Создать аккаунт' : hasSupabaseConfig ? 'Войти' : 'Открыть локальную демку'}
           </button>
           <button
             type="button"
             className="mt-3 w-full rounded-lg px-4 py-2 text-sm font-semibold text-reef hover:bg-teal-50"
             onClick={() => setMode(mode === 'signUp' ? 'signIn' : 'signUp')}
           >
-            {mode === 'signUp' ? 'Already have an account?' : 'Need an account?'}
+            {mode === 'signUp' ? 'Уже есть аккаунт?' : 'Нужен аккаунт?'}
           </button>
         </form>
       </section>
@@ -226,7 +226,7 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap }) {
             className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border ${
               favorite ? 'border-rose-200 bg-rose-50 text-rose-600' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
             }`}
-            aria-label={favorite ? 'Remove favorite' : 'Add favorite'}
+            aria-label={favorite ? 'Убрать из избранного' : 'Добавить в избранное'}
           >
             {favorite ? <Heart size={18} fill="currentColor" /> : <HeartOff size={18} />}
           </button>
@@ -240,7 +240,7 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap }) {
             className="inline-flex items-center gap-2 rounded-lg bg-reef px-3 py-2 text-sm font-bold text-white hover:bg-teal-800"
           >
             <Navigation size={16} />
-            Open in Amap
+            Открыть в Amap
           </a>
           <button
             type="button"
@@ -248,7 +248,7 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap }) {
             className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
           >
             <MapPin size={16} />
-            Show on map
+            Показать на карте
           </button>
         </div>
       </div>
@@ -261,32 +261,32 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose }) {
     <div className="fixed inset-0 z-[1000] grid place-items-center bg-slate-950/50 p-4">
       <form onSubmit={onSubmit} className="max-h-[92vh] w-full max-w-2xl overflow-auto rounded-lg bg-white p-5 shadow-2xl">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-xl font-black text-slate-950">Add a place</h2>
+          <h2 className="text-xl font-black text-slate-950">Добавить место</h2>
           <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg hover:bg-slate-100">
             <X size={19} />
           </button>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Input label="Name" value={draft.name} onChange={(value) => onChange({ name: value })} required />
-          <Input label="Chinese name" value={draft.chinese_name} onChange={(value) => onChange({ chinese_name: value })} />
+          <Input label="Название" value={draft.name} onChange={(value) => onChange({ name: value })} required />
+          <Input label="Китайское название" value={draft.chinese_name} onChange={(value) => onChange({ chinese_name: value })} />
           <label className="block">
-            <span className="mb-1 block text-sm font-semibold text-slate-700">Category</span>
+            <span className="mb-1 block text-sm font-semibold text-slate-700">Категория</span>
             <select
               className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-reef focus:ring-2 focus:ring-teal-100"
               value={draft.category}
               onChange={(event) => onChange({ category: event.target.value })}
             >
-              {categories.filter((category) => category !== 'Favorites').map((category) => (
+              {categories.filter((category) => category !== 'Избранное').map((category) => (
                 <option key={category}>{category}</option>
               ))}
             </select>
           </label>
-          <Input label="Photo URL" value={draft.photo_url} onChange={(value) => onChange({ photo_url: value })} required />
-          <Input label="Latitude" type="number" step="any" value={draft.lat} onChange={(value) => onChange({ lat: value })} required />
-          <Input label="Longitude" type="number" step="any" value={draft.lng} onChange={(value) => onChange({ lng: value })} required />
+          <Input label="URL фото" value={draft.photo_url} onChange={(value) => onChange({ photo_url: value })} required />
+          <Input label="Широта" type="number" step="any" value={draft.lat} onChange={(value) => onChange({ lat: value })} required />
+          <Input label="Долгота" type="number" step="any" value={draft.lng} onChange={(value) => onChange({ lng: value })} required />
         </div>
         <label className="mt-3 block">
-          <span className="mb-1 block text-sm font-semibold text-slate-700">Description</span>
+          <span className="mb-1 block text-sm font-semibold text-slate-700">Описание</span>
           <textarea
             className="min-h-28 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-reef focus:ring-2 focus:ring-teal-100"
             value={draft.description}
@@ -296,7 +296,7 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose }) {
         </label>
         <button type="submit" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-reef px-4 py-3 font-bold text-white hover:bg-teal-800">
           <Plus size={18} />
-          Save place
+          Сохранить место
         </button>
       </form>
     </div>
@@ -340,7 +340,7 @@ function GuideApp({ session, onSignOut }) {
   const [places, setPlaces] = useState(samplePlaces);
   const [favorites, setFavorites] = useState([]);
   const [categoryOrder, setCategoryOrder] = useState(defaultCategories);
-  const [activeCategory, setActiveCategory] = useState('Favorites');
+  const [activeCategory, setActiveCategory] = useState('Избранное');
   const [showForm, setShowForm] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [notice, setNotice] = useState('');
@@ -371,13 +371,13 @@ function GuideApp({ session, onSignOut }) {
   }
 
   const visiblePlaces = useMemo(() => {
-    if (activeCategory === 'Favorites') return places.filter((place) => favorites.includes(place.id));
+    if (activeCategory === 'Избранное') return places.filter((place) => favorites.includes(place.id));
     return places.filter((place) => place.category === activeCategory);
   }, [activeCategory, favorites, places]);
 
   const counts = useMemo(() => {
     return categoryOrder.reduce((acc, category) => {
-      acc[category] = category === 'Favorites'
+      acc[category] = category === 'Избранное'
         ? favorites.length
         : places.filter((place) => place.category === category).length;
       return acc;
@@ -430,12 +430,12 @@ function GuideApp({ session, onSignOut }) {
     if (!hasSupabaseConfig || session.localOnly) {
       const ownPlaces = readJson(LOCAL_PLACES_KEY, []);
       writeJson(LOCAL_PLACES_KEY, [place, ...ownPlaces]);
-      setNotice('Place saved locally. Connect Supabase to sync across devices.');
+      setNotice('Место сохранено локально. Подключите Supabase для синхронизации между устройствами.');
       return;
     }
 
     const { error } = await supabase.from('places').insert(place);
-    setNotice(error ? error.message : 'Place added.');
+    setNotice(error ? error.message : 'Место добавлено.');
   }
 
   function beginMapAdd(latlng) {
@@ -457,7 +457,7 @@ function GuideApp({ session, onSignOut }) {
               <Compass size={22} />
             </div>
             <div className="min-w-0">
-              <h1 className="truncate text-lg font-black text-slate-950">Hainan Guide</h1>
+              <h1 className="truncate text-lg font-black text-slate-950">Путеводитель по Хайнаню</h1>
               <p className="truncate text-xs text-slate-500">{user.email}</p>
             </div>
           </div>
@@ -465,7 +465,7 @@ function GuideApp({ session, onSignOut }) {
             {!hasSupabaseConfig && (
               <span className="hidden items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 sm:inline-flex">
                 <WifiOff size={14} />
-                Local demo
+                Локальная демка
               </span>
             )}
             <button
@@ -474,13 +474,13 @@ function GuideApp({ session, onSignOut }) {
               className="inline-flex items-center gap-2 rounded-lg bg-reef px-3 py-2 text-sm font-bold text-white hover:bg-teal-800"
             >
               <Plus size={17} />
-              Add
+              Добавить
             </button>
             <button
               type="button"
               onClick={onSignOut}
               className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"
-              aria-label="Sign out"
+              aria-label="Выйти"
             >
               <LogOut size={18} />
             </button>
@@ -492,7 +492,7 @@ function GuideApp({ session, onSignOut }) {
         <aside className="lg:sticky lg:top-20 lg:self-start">
           <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
             <div className="mb-3 flex items-center justify-between gap-2 px-1">
-              <h2 className="text-sm font-black uppercase text-slate-500">Menu</h2>
+              <h2 className="text-sm font-black uppercase text-slate-500">Меню</h2>
               <Star size={16} className="text-mango" fill="currentColor" />
             </div>
             <DndContext
@@ -536,16 +536,16 @@ function GuideApp({ session, onSignOut }) {
             <div>
               <p className="text-sm font-bold text-hibiscus">{activeCategory}</p>
               <h2 className="text-2xl font-black text-slate-950">
-                {visiblePlaces.length ? `${visiblePlaces.length} places` : 'No places yet'}
+                {visiblePlaces.length ? `${visiblePlaces.length} мест` : 'Пока нет мест'}
               </h2>
             </div>
             <button
               type="button"
-              onClick={() => setActiveCategory('Favorites')}
+              onClick={() => setActiveCategory('Избранное')}
               className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
             >
               <Heart size={16} />
-              Favorites
+              Избранное
             </button>
           </div>
 
@@ -564,10 +564,10 @@ function GuideApp({ session, onSignOut }) {
           <section id="global-map" className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
               <div>
-                <h2 className="text-lg font-black text-slate-950">Global map</h2>
-                <p className="text-sm text-slate-500">Click anywhere on the map to add a place at that location.</p>
+                <h2 className="text-lg font-black text-slate-950">Глобальная карта</h2>
+                <p className="text-sm text-slate-500">Нажмите на карту, чтобы добавить место в этой точке.</p>
               </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{places.length} markers</span>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{places.length} меток</span>
             </div>
             <div className="h-[520px]">
               <MapContainer center={selectedPlace ? [selectedPlace.lat, selectedPlace.lng] : SANYA_CENTER} zoom={13} scrollWheelZoom>
@@ -618,7 +618,7 @@ function emptyDraft() {
   return {
     name: '',
     chinese_name: '',
-    category: 'Restaurants & Cafes',
+    category: 'Рестораны и кафе',
     photo_url: 'https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=1200&q=80',
     description: '',
     lat: '18.221800',
