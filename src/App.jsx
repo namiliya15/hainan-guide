@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -30,6 +30,11 @@ import {
   User,
   WifiOff,
   X,
+  Search,
+  Copy,
+  Edit,
+  Trash2,
+  Check,
 } from 'lucide-react';
 import { defaultCategories } from './data/categories';
 import { samplePlaces } from './data/samplePlaces';
@@ -39,6 +44,25 @@ const LOCAL_PLACES_KEY = 'hainan-guide-places';
 const LOCAL_FAVORITES_KEY = 'hainan-guide-favorites';
 const LOCAL_CATEGORY_KEY = 'hainan-guide-category-order';
 const SANYA_CENTER = [18.2218, 109.515];
+
+// Функция для геокодирования адреса в координаты (через Nominatim - бесплатно)
+async function geocodeAddress(address) {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`
+    );
+    const data = await response.json();
+    if (data && data.length > 0) {
+      return {
+        lat: parseFloat(data[0].lat),
+        lng: parseFloat(data[0].lon),
+      };
+    }
+  } catch (error) {
+    console.error('Ошибка геокодирования:', error);
+  }
+  return null;
+}
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -202,31 +226,78 @@ function AuthPanel({ onSession }) {
   );
 }
 
-function PlaceCard({ place, favorite, onFavorite, onShowMap }) {
+function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete }) {
+  const [copiedName, setCopiedName] = useState(false);
+  const [copiedAddress, setCopiedAddress] = useState(false);
+  
   const amapUrl = place.amap_url || `https://uri.amap.com/marker?position=${place.lng},${place.lat}&name=${encodeURIComponent(place.chinese_name || place.name)}`;
   
+  const copyToClipboard = async (text, type) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (type === 'name') {
+        setCopiedName(true);
+        setTimeout(() => setCopiedName(false), 2000);
+      } else {
+        setCopiedAddress(true);
+        setTimeout(() => setCopiedAddress(false), 2000);
+      }
+    } catch (err) {
+      console.error('Ошибка копирования:', err);
+    }
+  };
+  
   return (
-    <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm group relative">
       <img src={place.photo_url} alt={place.name} className="h-44 w-full object-cover" loading="lazy" />
       <div className="space-y-3 p-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-xs font-bold uppercase tracking-wide text-hibiscus">{place.category}</p>
-            <h3 className="truncate text-lg font-black text-slate-950">{place.name}</h3>
-            <p className="text-sm font-semibold text-slate-500">{place.chinese_name}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="truncate text-lg font-black text-slate-950">{place.name}</h3>
+            </div>
+            {place.chinese_name && (
+              <div className="flex items-center gap-1 mt-0.5">
+                <p className="text-sm font-semibold text-slate-500">{place.chinese_name}</p>
+                <button
+                  onClick={() => copyToClipboard(place.chinese_name, 'name')}
+                  className="text-slate-400 hover:text-reef transition"
+                  title="Копировать китайское название"
+                >
+                  {copiedName ? <Check size={14} /> : <Copy size={14} />}
+                </button>
+              </div>
+            )}
+            {place.chinese_address && (
+              <div className="flex items-center gap-1 mt-0.5">
+                <p className="text-xs text-slate-400">{place.chinese_address}</p>
+                <button
+                  onClick={() => copyToClipboard(place.chinese_address, 'address')}
+                  className="text-slate-400 hover:text-reef transition"
+                  title="Копировать адрес"
+                >
+                  {copiedAddress ? <Check size={14} /> : <Copy size={14} />}
+                </button>
+              </div>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={() => onFavorite(place.id)}
-            className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border ${
-              favorite ? 'border-rose-200 bg-rose-50 text-rose-600' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-            }`}
-            aria-label={favorite ? 'Убрать из избранного' : 'Добавить в избранное'}
-          >
-            {favorite ? <Heart size={18} fill="currentColor" /> : <HeartOff size={18} />}
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onFavorite(place.id)}
+              className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border ${
+                favorite ? 'border-rose-200 bg-rose-50 text-rose-600' : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+              }`}
+              aria-label={favorite ? 'Убрать из избранного' : 'Добавить в избранное'}
+            >
+              {favorite ? <Heart size={18} fill="currentColor" /> : <HeartOff size={18} />}
+            </button>
+          </div>
         </div>
-        <p className="text-sm leading-6 text-slate-600">{place.description}</p>
+        {place.description && (
+          <p className="text-sm leading-6 text-slate-600">{place.description}</p>
+        )}
         <div className="flex flex-wrap gap-2">
           <a
             href={amapUrl}
@@ -257,17 +328,45 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap }) {
             </a>
           )}
         </div>
+        <div className="flex justify-end gap-2 pt-1 border-t border-slate-100">
+          <button
+            onClick={() => onEdit(place)}
+            className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-reef transition"
+          >
+            <Edit size={14} />
+            Редактировать
+          </button>
+          <button
+            onClick={() => onDelete(place.id)}
+            className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-red-600 transition"
+          >
+            <Trash2 size={14} />
+            Удалить
+          </button>
+        </div>
       </div>
     </article>
   );
 }
 
-function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose }) {
+function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, onGeocodeAddress, isEditing }) {
+  const [geocoding, setGeocoding] = useState(false);
+  
+  const handleGeocode = async () => {
+    if (!draft.chinese_address) return;
+    setGeocoding(true);
+    const coords = await onGeocodeAddress(draft.chinese_address);
+    if (coords) {
+      onChange({ lat: coords.lat, lng: coords.lng });
+    }
+    setGeocoding(false);
+  };
+  
   return (
     <div className="fixed inset-0 z-[1000] grid place-items-center bg-slate-950/50 p-4">
       <form onSubmit={onSubmit} className="max-h-[92vh] w-full max-w-2xl overflow-auto rounded-lg bg-white p-5 shadow-2xl">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-xl font-black text-slate-950">Добавить место</h2>
+          <h2 className="text-xl font-black text-slate-950">{isEditing ? 'Редактировать место' : 'Добавить место'}</h2>
           <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg hover:bg-slate-100">
             <X size={19} />
           </button>
@@ -275,6 +374,25 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose }) {
         <div className="grid gap-3 sm:grid-cols-2">
           <Input label="Название" value={draft.name} onChange={(value) => onChange({ name: value })} required />
           <Input label="Китайское название" value={draft.chinese_name} onChange={(value) => onChange({ chinese_name: value })} />
+          <div className="sm:col-span-2">
+            <Input 
+              label="Китайский адрес (необязательно)" 
+              value={draft.chinese_address || ''} 
+              onChange={(value) => onChange({ chinese_address: value })} 
+              placeholder="Например: 海南省三亚市大东海旅游区"
+            />
+            {draft.chinese_address && (
+              <button
+                type="button"
+                onClick={handleGeocode}
+                disabled={geocoding}
+                className="mt-1 inline-flex items-center gap-1 text-xs text-reef hover:underline"
+              >
+                <Search size={12} />
+                {geocoding ? 'Поиск координат...' : 'Найти на карте по адресу'}
+              </button>
+            )}
+          </div>
           <label className="block">
             <span className="mb-1 block text-sm font-semibold text-slate-700">Категория</span>
             <select
@@ -288,23 +406,25 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose }) {
             </select>
           </label>
           <Input label="URL фото" value={draft.photo_url} onChange={(value) => onChange({ photo_url: value })} required />
-          <Input label="Широта" type="number" step="any" value={draft.lat} onChange={(value) => onChange({ lat: value })} required />
-          <Input label="Долгота" type="number" step="any" value={draft.lng} onChange={(value) => onChange({ lng: value })} required />
-          <Input label="Ссылка Amap (необязательно)" value={draft.amap_url} onChange={(value) => onChange({ amap_url: value })} />
-          <Input label="Ссылка Trip.com (необязательно)" value={draft.trip_url} onChange={(value) => onChange({ trip_url: value })} />
+          <Input label="Ссылка Amap (необязательно)" value={draft.amap_url || ''} onChange={(value) => onChange({ amap_url: value })} />
+          <Input label="Ссылка Trip.com (необязательно)" value={draft.trip_url || ''} onChange={(value) => onChange({ trip_url: value })} />
         </div>
         <label className="mt-3 block">
-          <span className="mb-1 block text-sm font-semibold text-slate-700">Описание</span>
+          <span className="mb-1 block text-sm font-semibold text-slate-700">Описание (необязательно)</span>
           <textarea
             className="min-h-28 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-reef focus:ring-2 focus:ring-teal-100"
-            value={draft.description}
+            value={draft.description || ''}
             onChange={(event) => onChange({ description: event.target.value })}
-            required
           />
         </label>
+        {draft.lat && draft.lng && (
+          <p className="mt-2 text-xs text-slate-400">
+            Координаты: {draft.lat}, {draft.lng}
+          </p>
+        )}
         <button type="submit" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-reef px-4 py-3 font-bold text-white hover:bg-teal-800">
           <Plus size={18} />
-          Сохранить место
+          {isEditing ? 'Сохранить изменения' : 'Сохранить место'}
         </button>
       </form>
     </div>
@@ -318,7 +438,7 @@ function Input({ label, value, onChange, type = 'text', ...props }) {
       <input
         className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-reef focus:ring-2 focus:ring-teal-100"
         type={type}
-        value={value}
+        value={value || ''}
         onChange={(event) => onChange(event.target.value)}
         {...props}
       />
@@ -350,6 +470,8 @@ function GuideApp({ session, onSignOut }) {
   const [categoryOrder, setCategoryOrder] = useState(defaultCategories);
   const [activeCategory, setActiveCategory] = useState('Избранное');
   const [showForm, setShowForm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingPlaceId, setEditingPlaceId] = useState(null);
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [notice, setNotice] = useState('');
   const [draft, setDraft] = useState(() => emptyDraft());
@@ -419,14 +541,15 @@ function GuideApp({ session, onSignOut }) {
     const place = {
       id: crypto.randomUUID(),
       name: draft.name.trim(),
-      chinese_name: draft.chinese_name.trim(),
+      chinese_name: draft.chinese_name?.trim() || '',
+      chinese_address: draft.chinese_address?.trim() || null,
       category: draft.category,
-      description: draft.description.trim(),
+      description: draft.description?.trim() || null,
       photo_url: draft.photo_url.trim(),
       lat: Number(draft.lat),
       lng: Number(draft.lng),
-      amap_url: draft.amap_url ? draft.amap_url.trim() : null,
-      trip_url: draft.trip_url ? draft.trip_url.trim() : null,
+      amap_url: draft.amap_url?.trim() || null,
+      trip_url: draft.trip_url?.trim() || null,
       is_public: true,
       user_id: user.id,
     };
@@ -440,7 +563,7 @@ function GuideApp({ session, onSignOut }) {
     if (!hasSupabaseConfig || session.localOnly) {
       const ownPlaces = readJson(LOCAL_PLACES_KEY, []);
       writeJson(LOCAL_PLACES_KEY, [place, ...ownPlaces]);
-      setNotice('Место сохранено локально. Подключите Supabase для синхронизации между устройствами.');
+      setNotice('Место сохранено локально.');
       return;
     }
 
@@ -448,14 +571,106 @@ function GuideApp({ session, onSignOut }) {
     setNotice(error ? error.message : 'Место добавлено.');
   }
 
+  async function updatePlace(event) {
+    event.preventDefault();
+    const updatedPlace = {
+      name: draft.name.trim(),
+      chinese_name: draft.chinese_name?.trim() || '',
+      chinese_address: draft.chinese_address?.trim() || null,
+      category: draft.category,
+      description: draft.description?.trim() || null,
+      photo_url: draft.photo_url.trim(),
+      lat: Number(draft.lat),
+      lng: Number(draft.lng),
+      amap_url: draft.amap_url?.trim() || null,
+      trip_url: draft.trip_url?.trim() || null,
+    };
+
+    const updatedPlaces = places.map(place => 
+      place.id === editingPlaceId ? { ...place, ...updatedPlace } : place
+    );
+    setPlaces(updatedPlaces);
+    setShowForm(false);
+    setIsEditing(false);
+    setEditingPlaceId(null);
+    setDraft(emptyDraft());
+
+    if (!hasSupabaseConfig || session.localOnly) {
+      writeJson(LOCAL_PLACES_KEY, updatedPlaces);
+      setNotice('Место обновлено локально.');
+      return;
+    }
+
+    const { error } = await supabase.from('places').update(updatedPlace).eq('id', editingPlaceId);
+    setNotice(error ? error.message : 'Место обновлено.');
+  }
+
+  async function deletePlace(placeId) {
+    if (!confirm('Вы уверены, что хотите удалить это место?')) return;
+    
+    const updatedPlaces = places.filter(place => place.id !== placeId);
+    setPlaces(updatedPlaces);
+    
+    // Удаляем из избранного, если было
+    if (favorites.includes(placeId)) {
+      const updatedFavorites = favorites.filter(id => id !== placeId);
+      setFavorites(updatedFavorites);
+      if (!hasSupabaseConfig || session.localOnly) {
+        writeJson(LOCAL_FAVORITES_KEY, updatedFavorites);
+      } else {
+        await supabase.from('favorites').delete().eq('user_id', user.id).eq('place_id', placeId);
+      }
+    }
+
+    if (!hasSupabaseConfig || session.localOnly) {
+      writeJson(LOCAL_PLACES_KEY, updatedPlaces);
+      setNotice('Место удалено локально.');
+      return;
+    }
+
+    const { error } = await supabase.from('places').delete().eq('id', placeId);
+    setNotice(error ? error.message : 'Место удалено.');
+  }
+
+  function editPlace(place) {
+    setDraft({
+      name: place.name || '',
+      chinese_name: place.chinese_name || '',
+      chinese_address: place.chinese_address || '',
+      category: place.category || 'Рестораны и кафе',
+      photo_url: place.photo_url || '',
+      description: place.description || '',
+      lat: place.lat.toString(),
+      lng: place.lng.toString(),
+      amap_url: place.amap_url || '',
+      trip_url: place.trip_url || '',
+    });
+    setIsEditing(true);
+    setEditingPlaceId(place.id);
+    setShowForm(true);
+  }
+
   function beginMapAdd(latlng) {
     setDraft({ ...emptyDraft(), lat: latlng.lat.toFixed(6), lng: latlng.lng.toFixed(6) });
+    setIsEditing(false);
+    setEditingPlaceId(null);
     setShowForm(true);
   }
 
   function openPlaceOnMap(place) {
     setSelectedPlace(place);
     document.getElementById('global-map')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  
+  async function handleGeocodeAddress(address) {
+    return await geocodeAddress(address);
+  }
+
+  function handleCloseForm() {
+    setShowForm(false);
+    setIsEditing(false);
+    setEditingPlaceId(null);
+    setDraft(emptyDraft());
   }
 
   return (
@@ -480,7 +695,12 @@ function GuideApp({ session, onSignOut }) {
             )}
             <button
               type="button"
-              onClick={() => setShowForm(true)}
+              onClick={() => {
+                setIsEditing(false);
+                setEditingPlaceId(null);
+                setDraft(emptyDraft());
+                setShowForm(true);
+              }}
               className="inline-flex items-center gap-2 rounded-lg bg-reef px-3 py-2 text-sm font-bold text-white hover:bg-teal-800"
             >
               <Plus size={17} />
@@ -567,6 +787,8 @@ function GuideApp({ session, onSignOut }) {
                 favorite={favorites.includes(place.id)}
                 onFavorite={toggleFavorite}
                 onShowMap={openPlaceOnMap}
+                onEdit={editPlace}
+                onDelete={deletePlace}
               />
             ))}
           </div>
@@ -595,6 +817,7 @@ function GuideApp({ session, onSignOut }) {
                       {place.chinese_name}
                       <br />
                       {place.category}
+                      {place.chinese_address && <><br />{place.chinese_address}</>}
                     </Popup>
                   </Marker>
                 ))}
@@ -616,8 +839,10 @@ function GuideApp({ session, onSignOut }) {
           draft={draft}
           categories={categoryOrder}
           onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))}
-          onSubmit={addPlace}
-          onClose={() => setShowForm(false)}
+          onSubmit={isEditing ? updatePlace : addPlace}
+          onClose={handleCloseForm}
+          onGeocodeAddress={handleGeocodeAddress}
+          isEditing={isEditing}
         />
       )}
     </div>
@@ -628,6 +853,7 @@ function emptyDraft() {
   return {
     name: '',
     chinese_name: '',
+    chinese_address: '',
     category: 'Рестораны и кафе',
     photo_url: 'https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=1200&q=80',
     description: '',
