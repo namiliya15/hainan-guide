@@ -206,12 +206,18 @@ function AuthPanel({ onSession }) {
   );
 }
 
-function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete, userEmail }) {
+function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete }) {
   const [copiedName, setCopiedName] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   
-  // Явная проверка на администратора
-  const isAdmin = userEmail === 'namiliya15@gmail.com';
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsAdmin(user?.email === 'namiliya15@gmail.com');
+    };
+    checkAdmin();
+  }, []);
   
   const amapUrl = place.amap_url || (place.lat && place.lng ? `https://uri.amap.com/marker?position=${place.lng},${place.lat}&name=${encodeURIComponent(place.chinese_name || place.name)}` : null);
   
@@ -321,7 +327,6 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete, u
           )}
         </div>
         
-        {/* Кнопки редактирования/удаления — видны ТОЛЬКО администратору */}
         {isAdmin && (
           <div className="flex justify-end gap-2 pt-1 border-t border-slate-100">
             <button
@@ -676,36 +681,36 @@ function GuideApp({ session, onSignOut }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-  {!hasSupabaseConfig && (
-    <span className="hidden items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 sm:inline-flex">
-      <WifiOff size={14} />
-      Локальная демка
-    </span>
-  )}
-  {user.email === 'namiliya15@gmail.com' && (
-    <button
-      type="button"
-      onClick={() => {
-        setIsEditing(false);
-        setEditingPlaceId(null);
-        setDraft(emptyDraft());
-        setShowForm(true);
-      }}
-      className="inline-flex items-center gap-2 rounded-lg bg-reef px-3 py-2 text-sm font-bold text-white hover:bg-teal-800"
-    >
-      <Plus size={17} />
-      Добавить
-    </button>
-  )}
-  <button
-    type="button"
-    onClick={onSignOut}
-    className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"
-    aria-label="Выйти"
-  >
-    <LogOut size={18} />
-  </button>
-</div>
+            {!hasSupabaseConfig && (
+              <span className="hidden items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 sm:inline-flex">
+                <WifiOff size={14} />
+                Локальная демка
+              </span>
+            )}
+            {user.email === 'namiliya15@gmail.com' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditingPlaceId(null);
+                  setDraft(emptyDraft());
+                  setShowForm(true);
+                }}
+                className="inline-flex items-center gap-2 rounded-lg bg-reef px-3 py-2 text-sm font-bold text-white hover:bg-teal-800"
+              >
+                <Plus size={17} />
+                Добавить
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"
+              aria-label="Выйти"
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -780,7 +785,6 @@ function GuideApp({ session, onSignOut }) {
                 onShowMap={openPlaceOnMap}
                 onEdit={editPlace}
                 onDelete={deletePlace}
-                userEmail={user.email}
               />
             ))}
           </div>
