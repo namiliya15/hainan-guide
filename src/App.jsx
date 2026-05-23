@@ -45,46 +45,20 @@ const LOCAL_FAVORITES_KEY = 'hainan-guide-favorites';
 const LOCAL_CATEGORY_KEY = 'hainan-guide-category-order';
 const SANYA_CENTER = [18.2218, 109.515];
 
-// Функция для геокодирования адреса (поддерживает китайский, английский, русский)
-async function geocodeAddress(address) {
-  if (!address || address.trim() === '') {
-    console.warn('Адрес пуст');
-    return null;
+// Функция для извлечения координат из ссылки Amap
+function parseCoordinatesFromAmapUrl(url) {
+  if (!url) return null;
+  
+  // Amap: https://uri.amap.com/marker?position=109.515,18.2218
+  const amapMatch = url.match(/position=([-\d.]+),([-\d.]+)/);
+  if (amapMatch) {
+    return {
+      lat: parseFloat(amapMatch[2]),
+      lng: parseFloat(amapMatch[1]),
+    };
   }
   
-  try {
-    console.log('🔍 Ищем адрес:', address);
-    
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&accept-language=zh-CN,en,ru`,
-      {
-        headers: {
-          'Accept-Language': 'zh-CN,en,ru',
-          'User-Agent': 'HainanGuideApp/1.0'
-        }
-      }
-    );
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (data && data.length > 0) {
-      console.log('✅ Найдено:', data[0].display_name);
-      return {
-        lat: parseFloat(data[0].lat),
-        lng: parseFloat(data[0].lon),
-      };
-    } else {
-      console.warn('❌ Адрес не найден:', address);
-      return null;
-    }
-  } catch (error) {
-    console.error('❌ Ошибка геокодирования:', error);
-    return null;
-  }
+  return null;
 }
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -253,7 +227,7 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete })
   const [copiedName, setCopiedName] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
   
-  const amapUrl = place.amap_url || `https://uri.amap.com/marker?position=${place.lng},${place.lat}&name=${encodeURIComponent(place.chinese_name || place.name)}`;
+  const amapUrl = place.amap_url || (place.lat && place.lng ? `https://uri.amap.com/marker?position=${place.lng},${place.lat}&name=${encodeURIComponent(place.chinese_name || place.name)}` : null);
   
   const copyToClipboard = async (text, type) => {
     try {
@@ -304,6 +278,9 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete })
                 </button>
               </div>
             )}
+            {!place.lat && !place.lng && (
+              <p className="text-xs text-amber-500 mt-1">⚠️ Без координат — не отображается на карте</p>
+            )}
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -322,23 +299,27 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete })
           <p className="text-sm leading-6 text-slate-600">{place.description}</p>
         )}
         <div className="flex flex-wrap gap-2">
-          <a
-            href={amapUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg bg-reef px-3 py-2 text-sm font-bold text-white hover:bg-teal-800"
-          >
-            <Navigation size={16} />
-            Открыть в Amap
-          </a>
-          <button
-            type="button"
-            onClick={() => onShowMap(place)}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
-          >
-            <MapPin size={16} />
-            Показать на карте
-          </button>
+          {amapUrl && (
+            <a
+              href={amapUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg bg-reef px-3 py-2 text-sm font-bold text-white hover:bg-teal-800"
+            >
+              <Navigation size={16} />
+              Открыть в Amap
+            </a>
+          )}
+          {place.lat && place.lng && (
+            <button
+              type="button"
+              onClick={() => onShowMap(place)}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+            >
+              <MapPin size={16} />
+              Показать на карте
+            </button>
+          )}
           {place.trip_url && (
             <a
               href={place.trip_url}
@@ -372,23 +353,27 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete })
   );
 }
 
-function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, onGeocodeAddress, isEditing }) {
-  const [geocoding, setGeocoding] = useState(false);
+function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, isEditing }) {
+  const [extracting, setExtracting] = useState(false);
   
-  const handleGeocode = async () => {
-    if (!draft.chinese_address) {
-      alert('Сначала введите адрес (можно на китайском, английском или русском)');
+  const handleExtractCoordinates = async () => {
+    if (!draft.amap_url) {
+      alert('Сначала введите ссылку Amap');
       return;
     }
-    setGeocoding(true);
-    const coords = await onGeocodeAddress(draft.chinese_address);
-    if (coords) {
-      onChange({ lat: coords.lat.toFixed(6), lng: coords.lng.toFixed(6) });
-      alert('Координаты найдены! Можно сохранять место.');
-    } else {
-      alert('Адрес не найден. Попробуйте ввести более точно, например: Sanya Dadonghai Beach');
-    }
-    setGeocoding(false);
+    setExtracting(true);
+    
+    // Имитация задержки для лучшего UX
+    setTimeout(() => {
+      const coords = parseCoordinatesFromAmapUrl(draft.amap_url);
+      if (coords) {
+        onChange({ lat: coords.lat.toFixed(6), lng: coords.lng.toFixed(6) });
+        alert('Координаты найдены! Место будет отображаться на карте.');
+      } else {
+        alert('Не удалось извлечь координаты из ссылки Amap. Убедитесь, что ссылка содержит position=долгота,широта');
+      }
+      setExtracting(false);
+    }, 500);
   };
   
   return (
@@ -405,22 +390,11 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, onGeocod
           <Input label="Китайское название" value={draft.chinese_name} onChange={(value) => onChange({ chinese_name: value })} />
           <div className="sm:col-span-2">
             <Input 
-              label="Адрес (можно на китайском, английском, русском)" 
+              label="Адрес (для копирования)" 
               value={draft.chinese_address || ''} 
               onChange={(value) => onChange({ chinese_address: value })} 
-              placeholder="Например: Sanya Dadonghai Beach или 海南省三亚市大东海旅游区"
+              placeholder="Китайский или английский адрес (будет отображаться в карточке для копирования)"
             />
-            {draft.chinese_address && (
-              <button
-                type="button"
-                onClick={handleGeocode}
-                disabled={geocoding}
-                className="mt-1 inline-flex items-center gap-1 text-xs text-reef hover:underline"
-              >
-                <Search size={12} />
-                {geocoding ? 'Поиск координат...' : 'Найти координаты по адресу'}
-              </button>
-            )}
           </div>
           <label className="block">
             <span className="mb-1 block text-sm font-semibold text-slate-700">Категория</span>
@@ -435,7 +409,25 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, onGeocod
             </select>
           </label>
           <Input label="URL фото" value={draft.photo_url} onChange={(value) => onChange({ photo_url: value })} required />
-          <Input label="Ссылка Amap (необязательно)" value={draft.amap_url || ''} onChange={(value) => onChange({ amap_url: value })} />
+          <div className="sm:col-span-2">
+            <Input 
+              label="Ссылка Amap (для автоматического получения координат)" 
+              value={draft.amap_url || ''} 
+              onChange={(value) => onChange({ amap_url: value })} 
+              placeholder="https://uri.amap.com/marker?position=109.515,18.2218"
+            />
+            {draft.amap_url && (
+              <button
+                type="button"
+                onClick={handleExtractCoordinates}
+                disabled={extracting}
+                className="mt-1 inline-flex items-center gap-1 text-xs text-reef hover:underline"
+              >
+                <Search size={12} />
+                {extracting ? 'Извлечение координат...' : 'Получить координаты из ссылки Amap'}
+              </button>
+            )}
+          </div>
           <Input label="Ссылка Trip.com (необязательно)" value={draft.trip_url || ''} onChange={(value) => onChange({ trip_url: value })} />
         </div>
         <label className="mt-3 block">
@@ -446,29 +438,24 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, onGeocod
             onChange={(event) => onChange({ description: event.target.value })}
           />
         </label>
-        {!draft.lat && !draft.lng && (
-          <p className="mt-2 text-xs text-amber-600">
-            💡 Как добавить место:<br />
-            • Кликните на карту → координаты подставятся автоматически<br />
-            • Или введите адрес и нажмите «Найти координаты по адресу»
-          </p>
-        )}
-        {draft.lat && draft.lng && (
+        {draft.lat && draft.lng ? (
           <p className="mt-2 text-xs text-green-600">
-            ✓ Координаты найдены! Место будет отображаться на карте.
+            ✓ Координаты: {draft.lat}, {draft.lng}
+          </p>
+        ) : (
+          <p className="mt-2 text-xs text-amber-600">
+            💡 Координаты не заданы. Место не будет отображаться на карте.<br />
+            • Кликните на карту, чтобы добавить координаты<br />
+            • Или вставьте ссылку Amap и нажмите «Получить координаты»
           </p>
         )}
         <button 
           type="submit" 
-          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-reef px-4 py-3 font-bold text-white hover:bg-teal-800 disabled:opacity-50"
-          disabled={!draft.lat || !draft.lng}
+          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-reef px-4 py-3 font-bold text-white hover:bg-teal-800"
         >
           <Plus size={18} />
           {isEditing ? 'Сохранить изменения' : 'Сохранить место'}
         </button>
-        {(!draft.lat || !draft.lng) && (
-          <p className="mt-1 text-xs text-slate-400">Кнопка сохранения станет активной после получения координат</p>
-        )}
       </form>
     </div>
   );
@@ -503,7 +490,7 @@ function MapClickHandler({ onPick }) {
 function MapFocus({ place }) {
   const map = useMapEvents({});
   useEffect(() => {
-    if (place && map) {
+    if (place && map && place.lat && place.lng) {
       map.setView([place.lat, place.lng], 15, { animate: true });
     }
   }, [map, place]);
@@ -586,11 +573,6 @@ function GuideApp({ session, onSignOut }) {
   async function addPlace(event) {
     event.preventDefault();
     
-    if (!draft.lat || !draft.lng) {
-      alert('Сначала получите координаты (кликните на карту или найдите по адресу)');
-      return;
-    }
-    
     const place = {
       id: crypto.randomUUID(),
       name: draft.name.trim(),
@@ -599,8 +581,8 @@ function GuideApp({ session, onSignOut }) {
       category: draft.category,
       description: draft.description?.trim() || null,
       photo_url: draft.photo_url.trim(),
-      lat: Number(draft.lat),
-      lng: Number(draft.lng),
+      lat: draft.lat ? Number(draft.lat) : null,
+      lng: draft.lng ? Number(draft.lng) : null,
       amap_url: draft.amap_url?.trim() || null,
       trip_url: draft.trip_url?.trim() || null,
       is_public: true,
@@ -627,11 +609,6 @@ function GuideApp({ session, onSignOut }) {
   async function updatePlace(event) {
     event.preventDefault();
     
-    if (!draft.lat || !draft.lng) {
-      alert('Сначала получите координаты (кликните на карту или найдите по адресу)');
-      return;
-    }
-    
     const updatedPlace = {
       name: draft.name.trim(),
       chinese_name: draft.chinese_name?.trim() || '',
@@ -639,8 +616,8 @@ function GuideApp({ session, onSignOut }) {
       category: draft.category,
       description: draft.description?.trim() || null,
       photo_url: draft.photo_url.trim(),
-      lat: Number(draft.lat),
-      lng: Number(draft.lng),
+      lat: draft.lat ? Number(draft.lat) : null,
+      lng: draft.lng ? Number(draft.lng) : null,
       amap_url: draft.amap_url?.trim() || null,
       trip_url: draft.trip_url?.trim() || null,
     };
@@ -720,12 +697,10 @@ function GuideApp({ session, onSignOut }) {
   }
 
   function openPlaceOnMap(place) {
-    setSelectedPlace(place);
-    document.getElementById('global-map')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-  
-  async function handleGeocodeAddress(address) {
-    return await geocodeAddress(address);
+    if (place.lat && place.lng) {
+      setSelectedPlace(place);
+      document.getElementById('global-map')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   }
 
   function handleCloseForm() {
@@ -859,9 +834,9 @@ function GuideApp({ session, onSignOut }) {
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
               <div>
                 <h2 className="text-lg font-black text-slate-950">Глобальная карта</h2>
-                <p className="text-sm text-slate-500">Нажмите на карту, чтобы добавить место в этой точке. Или укажите адрес в форме.</p>
+                <p className="text-sm text-slate-500">Нажмите на карту, чтобы добавить координаты места.</p>
               </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{places.length} меток</span>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{places.filter(p => p.lat && p.lng).length} меток</span>
             </div>
             <div className="h-[520px]">
               <MapContainer center={SANYA_CENTER} zoom={13} scrollWheelZoom>
@@ -871,7 +846,7 @@ function GuideApp({ session, onSignOut }) {
                 />
                 <MapClickHandler onPick={beginMapAdd} />
                 <MapFocus place={selectedPlace} />
-                {places.map((place) => (
+                {places.filter(p => p.lat && p.lng).map((place) => (
                   <Marker key={place.id} position={[place.lat, place.lng]}>
                     <Popup>
                       <strong>{place.name}</strong>
@@ -883,7 +858,7 @@ function GuideApp({ session, onSignOut }) {
                     </Popup>
                   </Marker>
                 ))}
-                {selectedPlace && (
+                {selectedPlace && selectedPlace.lat && selectedPlace.lng && (
                   <Marker position={[selectedPlace.lat, selectedPlace.lng]}>
                     <Popup>
                       <strong>{selectedPlace.name}</strong>
@@ -903,7 +878,6 @@ function GuideApp({ session, onSignOut }) {
           onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))}
           onSubmit={isEditing ? updatePlace : addPlace}
           onClose={handleCloseForm}
-          onGeocodeAddress={handleGeocodeAddress}
           isEditing={isEditing}
         />
       )}
