@@ -210,6 +210,9 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete, u
   const [copiedName, setCopiedName] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
   
+  // Явная проверка на администратора
+  const isAdmin = userEmail === 'namiliya15@gmail.com';
+  
   const amapUrl = place.amap_url || (place.lat && place.lng ? `https://uri.amap.com/marker?position=${place.lng},${place.lat}&name=${encodeURIComponent(place.chinese_name || place.name)}` : null);
   
   const copyToClipboard = async (text, type) => {
@@ -319,7 +322,7 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete, u
         </div>
         
         {/* Кнопки редактирования/удаления — видны ТОЛЬКО администратору */}
-        {userEmail === 'namiliya15@gmail.com' && (
+        {isAdmin && (
           <div className="flex justify-end gap-2 pt-1 border-t border-slate-100">
             <button
               onClick={() => onEdit(place)}
