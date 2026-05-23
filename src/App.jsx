@@ -214,6 +214,9 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete })
   useEffect(() => {
     const checkAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('PlaceCard - проверка администратора:');
+      console.log('  Email пользователя:', user?.email);
+      console.log('  isAdmin:', user?.email === 'namiliya15@gmail.com');
       setIsAdmin(user?.email === 'namiliya15@gmail.com');
     };
     checkAdmin();
