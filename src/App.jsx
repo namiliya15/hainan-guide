@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import {
   DndContext,
   PointerSensor,
@@ -209,7 +210,8 @@ function AuthPanel({ onSession }) {
 }
 
 function PlaceCard({ place, favorite, onFavorite, onShowMap }) {
-  const amapUrl = `https://uri.amap.com/marker?position=${place.lng},${place.lat}&name=${encodeURIComponent(place.chinese_name || place.name)}`;
+  // Если есть собственная amap_url, используем её, иначе формируем из координат
+  const amapUrl = place.amap_url || `https://uri.amap.com/marker?position=${place.lng},${place.lat}&name=${encodeURIComponent(place.chinese_name || place.name)}`;
   return (
     <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <img src={place.photo_url} alt={place.name} className="h-44 w-full object-cover" loading="lazy" />
@@ -284,6 +286,7 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose }) {
           <Input label="URL фото" value={draft.photo_url} onChange={(value) => onChange({ photo_url: value })} required />
           <Input label="Широта" type="number" step="any" value={draft.lat} onChange={(value) => onChange({ lat: value })} required />
           <Input label="Долгота" type="number" step="any" value={draft.lng} onChange={(value) => onChange({ lng: value })} required />
+          <Input label="Ссылка Amap (необязательно)" value={draft.amap_url} onChange={(value) => onChange({ amap_url: value })} />
         </div>
         <label className="mt-3 block">
           <span className="mb-1 block text-sm font-semibold text-slate-700">Описание</span>
@@ -337,7 +340,7 @@ function MapFocus({ place }) {
 
 function GuideApp({ session, onSignOut }) {
   const user = session.user;
-  const [places, setPlaces] = useState(samplePlaces);
+  const [places, setPlaces] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [categoryOrder, setCategoryOrder] = useState(defaultCategories);
   const [activeCategory, setActiveCategory] = useState('Избранное');
@@ -354,7 +357,7 @@ function GuideApp({ session, onSignOut }) {
   async function loadData() {
     if (!hasSupabaseConfig || session.localOnly) {
       const localPlaces = readJson(LOCAL_PLACES_KEY, []);
-      setPlaces([...samplePlaces, ...localPlaces]);
+      setPlaces(localPlaces);
       setFavorites(readJson(LOCAL_FAVORITES_KEY, []));
       setCategoryOrder(readJson(LOCAL_CATEGORY_KEY, defaultCategories));
       return;
@@ -365,7 +368,7 @@ function GuideApp({ session, onSignOut }) {
       supabase.from('favorites').select('place_id').eq('user_id', user.id),
       supabase.from('profiles').select('category_order').eq('id', user.id).maybeSingle(),
     ]);
-    setPlaces(remotePlaces?.length ? remotePlaces : samplePlaces);
+    setPlaces(remotePlaces || []);
     setFavorites(remoteFavorites?.map((row) => row.place_id) || []);
     setCategoryOrder(profile?.category_order?.length ? profile.category_order : defaultCategories);
   }
@@ -417,6 +420,7 @@ function GuideApp({ session, onSignOut }) {
       photo_url: draft.photo_url.trim(),
       lat: Number(draft.lat),
       lng: Number(draft.lng),
+      amap_url: draft.amap_url ? draft.amap_url.trim() : null,
       is_public: true,
       user_id: user.id,
     };
@@ -623,6 +627,7 @@ function emptyDraft() {
     description: '',
     lat: '18.221800',
     lng: '109.515000',
+    amap_url: '',
   };
 }
 
