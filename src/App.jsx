@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -45,23 +45,46 @@ const LOCAL_FAVORITES_KEY = 'hainan-guide-favorites';
 const LOCAL_CATEGORY_KEY = 'hainan-guide-category-order';
 const SANYA_CENTER = [18.2218, 109.515];
 
-// Функция для геокодирования адреса в координаты
+// Функция для геокодирования адреса (поддерживает китайский, английский, русский)
 async function geocodeAddress(address) {
+  if (!address || address.trim() === '') {
+    console.warn('Адрес пуст');
+    return null;
+  }
+  
   try {
+    console.log('🔍 Ищем адрес:', address);
+    
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&accept-language=zh-CN,en,ru`,
+      {
+        headers: {
+          'Accept-Language': 'zh-CN,en,ru',
+          'User-Agent': 'HainanGuideApp/1.0'
+        }
+      }
     );
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
     const data = await response.json();
+    
     if (data && data.length > 0) {
+      console.log('✅ Найдено:', data[0].display_name);
       return {
         lat: parseFloat(data[0].lat),
         lng: parseFloat(data[0].lon),
       };
+    } else {
+      console.warn('❌ Адрес не найден:', address);
+      return null;
     }
   } catch (error) {
-    console.error('Ошибка геокодирования:', error);
+    console.error('❌ Ошибка геокодирования:', error);
+    return null;
   }
-  return null;
 }
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -354,16 +377,16 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, onGeocod
   
   const handleGeocode = async () => {
     if (!draft.chinese_address) {
-      alert('Сначала введите китайский адрес');
+      alert('Сначала введите адрес (можно на китайском, английском или русском)');
       return;
     }
     setGeocoding(true);
     const coords = await onGeocodeAddress(draft.chinese_address);
     if (coords) {
-      onChange({ lat: coords.lat, lng: coords.lng });
+      onChange({ lat: coords.lat.toFixed(6), lng: coords.lng.toFixed(6) });
       alert('Координаты найдены! Можно сохранять место.');
     } else {
-      alert('Адрес не найден. Проверьте правильность ввода.');
+      alert('Адрес не найден. Попробуйте ввести более точно, например: Sanya Dadonghai Beach');
     }
     setGeocoding(false);
   };
@@ -382,10 +405,10 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, onGeocod
           <Input label="Китайское название" value={draft.chinese_name} onChange={(value) => onChange({ chinese_name: value })} />
           <div className="sm:col-span-2">
             <Input 
-              label="Китайский адрес (необязательно, если координаты уже есть)" 
+              label="Адрес (можно на китайском, английском, русском)" 
               value={draft.chinese_address || ''} 
               onChange={(value) => onChange({ chinese_address: value })} 
-              placeholder="Например: 海南省三亚市大东海旅游区"
+              placeholder="Например: Sanya Dadonghai Beach или 海南省三亚市大东海旅游区"
             />
             {draft.chinese_address && (
               <button
@@ -425,12 +448,14 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, onGeocod
         </label>
         {!draft.lat && !draft.lng && (
           <p className="mt-2 text-xs text-amber-600">
-            💡 Чтобы добавить место: либо кликните на карту, либо нажмите «Найти координаты по адресу».
+            💡 Как добавить место:<br />
+            • Кликните на карту → координаты подставятся автоматически<br />
+            • Или введите адрес и нажмите «Найти координаты по адресу»
           </p>
         )}
         {draft.lat && draft.lng && (
           <p className="mt-2 text-xs text-green-600">
-            ✓ Координаты: {draft.lat}, {draft.lng}
+            ✓ Координаты найдены! Место будет отображаться на карте.
           </p>
         )}
         <button 
@@ -464,11 +489,12 @@ function Input({ label, value, onChange, type = 'text', ...props }) {
   );
 }
 
-// Восстанавливаем обработчик клика на карту
 function MapClickHandler({ onPick }) {
   useMapEvents({
     click(event) {
-      onPick(event.latlng);
+      if (onPick) {
+        onPick(event.latlng);
+      }
     },
   });
   return null;
@@ -477,7 +503,9 @@ function MapClickHandler({ onPick }) {
 function MapFocus({ place }) {
   const map = useMapEvents({});
   useEffect(() => {
-    if (place) map.setView([place.lat, place.lng], 15, { animate: true });
+    if (place && map) {
+      map.setView([place.lat, place.lng], 15, { animate: true });
+    }
   }, [map, place]);
   return null;
 }
@@ -670,8 +698,8 @@ function GuideApp({ session, onSignOut }) {
       category: place.category || 'Рестораны и кафе',
       photo_url: place.photo_url || '',
       description: place.description || '',
-      lat: place.lat.toString(),
-      lng: place.lng.toString(),
+      lat: place.lat?.toString() || '',
+      lng: place.lng?.toString() || '',
       amap_url: place.amap_url || '',
       trip_url: place.trip_url || '',
     });
@@ -680,9 +708,12 @@ function GuideApp({ session, onSignOut }) {
     setShowForm(true);
   }
 
-  // Функция для добавления места по клику на карту
   function beginMapAdd(latlng) {
-    setDraft({ ...emptyDraft(), lat: latlng.lat.toFixed(6), lng: latlng.lng.toFixed(6) });
+    setDraft({ 
+      ...emptyDraft(), 
+      lat: latlng.lat.toFixed(6), 
+      lng: latlng.lng.toFixed(6) 
+    });
     setIsEditing(false);
     setEditingPlaceId(null);
     setShowForm(true);
