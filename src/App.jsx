@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -45,7 +45,7 @@ const LOCAL_FAVORITES_KEY = 'hainan-guide-favorites';
 const LOCAL_CATEGORY_KEY = 'hainan-guide-category-order';
 const SANYA_CENTER = [18.2218, 109.515];
 
-// Функция для геокодирования адреса в координаты (через Nominatim - бесплатно)
+// Функция для геокодирования адреса в координаты
 async function geocodeAddress(address) {
   try {
     const response = await fetch(
@@ -353,11 +353,17 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, onGeocod
   const [geocoding, setGeocoding] = useState(false);
   
   const handleGeocode = async () => {
-    if (!draft.chinese_address) return;
+    if (!draft.chinese_address) {
+      alert('Сначала введите китайский адрес');
+      return;
+    }
     setGeocoding(true);
     const coords = await onGeocodeAddress(draft.chinese_address);
     if (coords) {
       onChange({ lat: coords.lat, lng: coords.lng });
+      alert('Координаты найдены! Можно сохранять место.');
+    } else {
+      alert('Адрес не найден. Проверьте правильность ввода.');
     }
     setGeocoding(false);
   };
@@ -376,7 +382,7 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, onGeocod
           <Input label="Китайское название" value={draft.chinese_name} onChange={(value) => onChange({ chinese_name: value })} />
           <div className="sm:col-span-2">
             <Input 
-              label="Китайский адрес (необязательно)" 
+              label="Китайский адрес (необязательно, если координаты уже есть)" 
               value={draft.chinese_address || ''} 
               onChange={(value) => onChange({ chinese_address: value })} 
               placeholder="Например: 海南省三亚市大东海旅游区"
@@ -389,7 +395,7 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, onGeocod
                 className="mt-1 inline-flex items-center gap-1 text-xs text-reef hover:underline"
               >
                 <Search size={12} />
-                {geocoding ? 'Поиск координат...' : 'Найти на карте по адресу'}
+                {geocoding ? 'Поиск координат...' : 'Найти координаты по адресу'}
               </button>
             )}
           </div>
@@ -417,15 +423,27 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, onGeocod
             onChange={(event) => onChange({ description: event.target.value })}
           />
         </label>
-        {draft.lat && draft.lng && (
-          <p className="mt-2 text-xs text-slate-400">
-            Координаты: {draft.lat}, {draft.lng}
+        {!draft.lat && !draft.lng && (
+          <p className="mt-2 text-xs text-amber-600">
+            💡 Чтобы добавить место: либо кликните на карту, либо нажмите «Найти координаты по адресу».
           </p>
         )}
-        <button type="submit" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-reef px-4 py-3 font-bold text-white hover:bg-teal-800">
+        {draft.lat && draft.lng && (
+          <p className="mt-2 text-xs text-green-600">
+            ✓ Координаты: {draft.lat}, {draft.lng}
+          </p>
+        )}
+        <button 
+          type="submit" 
+          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-reef px-4 py-3 font-bold text-white hover:bg-teal-800 disabled:opacity-50"
+          disabled={!draft.lat || !draft.lng}
+        >
           <Plus size={18} />
           {isEditing ? 'Сохранить изменения' : 'Сохранить место'}
         </button>
+        {(!draft.lat || !draft.lng) && (
+          <p className="mt-1 text-xs text-slate-400">Кнопка сохранения станет активной после получения координат</p>
+        )}
       </form>
     </div>
   );
@@ -446,6 +464,7 @@ function Input({ label, value, onChange, type = 'text', ...props }) {
   );
 }
 
+// Восстанавливаем обработчик клика на карту
 function MapClickHandler({ onPick }) {
   useMapEvents({
     click(event) {
@@ -538,6 +557,12 @@ function GuideApp({ session, onSignOut }) {
 
   async function addPlace(event) {
     event.preventDefault();
+    
+    if (!draft.lat || !draft.lng) {
+      alert('Сначала получите координаты (кликните на карту или найдите по адресу)');
+      return;
+    }
+    
     const place = {
       id: crypto.randomUUID(),
       name: draft.name.trim(),
@@ -573,6 +598,12 @@ function GuideApp({ session, onSignOut }) {
 
   async function updatePlace(event) {
     event.preventDefault();
+    
+    if (!draft.lat || !draft.lng) {
+      alert('Сначала получите координаты (кликните на карту или найдите по адресу)');
+      return;
+    }
+    
     const updatedPlace = {
       name: draft.name.trim(),
       chinese_name: draft.chinese_name?.trim() || '',
@@ -611,7 +642,6 @@ function GuideApp({ session, onSignOut }) {
     const updatedPlaces = places.filter(place => place.id !== placeId);
     setPlaces(updatedPlaces);
     
-    // Удаляем из избранного, если было
     if (favorites.includes(placeId)) {
       const updatedFavorites = favorites.filter(id => id !== placeId);
       setFavorites(updatedFavorites);
@@ -650,6 +680,7 @@ function GuideApp({ session, onSignOut }) {
     setShowForm(true);
   }
 
+  // Функция для добавления места по клику на карту
   function beginMapAdd(latlng) {
     setDraft({ ...emptyDraft(), lat: latlng.lat.toFixed(6), lng: latlng.lng.toFixed(6) });
     setIsEditing(false);
@@ -797,12 +828,12 @@ function GuideApp({ session, onSignOut }) {
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
               <div>
                 <h2 className="text-lg font-black text-slate-950">Глобальная карта</h2>
-                <p className="text-sm text-slate-500">Нажмите на карту, чтобы добавить место в этой точке.</p>
+                <p className="text-sm text-slate-500">Нажмите на карту, чтобы добавить место в этой точке. Или укажите адрес в форме.</p>
               </div>
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{places.length} меток</span>
             </div>
             <div className="h-[520px]">
-              <MapContainer center={selectedPlace ? [selectedPlace.lat, selectedPlace.lng] : SANYA_CENTER} zoom={13} scrollWheelZoom>
+              <MapContainer center={SANYA_CENTER} zoom={13} scrollWheelZoom>
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -857,8 +888,8 @@ function emptyDraft() {
     category: 'Рестораны и кафе',
     photo_url: 'https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=1200&q=80',
     description: '',
-    lat: '18.221800',
-    lng: '109.515000',
+    lat: '',
+    lng: '',
     amap_url: '',
     trip_url: '',
   };
