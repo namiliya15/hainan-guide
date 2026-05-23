@@ -780,6 +780,7 @@ function GuideApp({ session, onSignOut }) {
                 onShowMap={openPlaceOnMap}
                 onEdit={editPlace}
                 onDelete={deletePlace}
+                userEmail={user.email}
               />
             ))}
           </div>
