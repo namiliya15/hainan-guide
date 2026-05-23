@@ -669,34 +669,36 @@ function GuideApp({ session, onSignOut }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {!hasSupabaseConfig && (
-              <span className="hidden items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 sm:inline-flex">
-                <WifiOff size={14} />
-                Локальная демка
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                setIsEditing(false);
-                setEditingPlaceId(null);
-                setDraft(emptyDraft());
-                setShowForm(true);
-              }}
-              className="inline-flex items-center gap-2 rounded-lg bg-reef px-3 py-2 text-sm font-bold text-white hover:bg-teal-800"
-            >
-              <Plus size={17} />
-              Добавить
-            </button>
-            <button
-              type="button"
-              onClick={onSignOut}
-              className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"
-              aria-label="Выйти"
-            >
-              <LogOut size={18} />
-            </button>
-          </div>
+  {!hasSupabaseConfig && (
+    <span className="hidden items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 sm:inline-flex">
+      <WifiOff size={14} />
+      Локальная демка
+    </span>
+  )}
+  {user.email === 'namiliya15@gmail.com' && (
+    <button
+      type="button"
+      onClick={() => {
+        setIsEditing(false);
+        setEditingPlaceId(null);
+        setDraft(emptyDraft());
+        setShowForm(true);
+      }}
+      className="inline-flex items-center gap-2 rounded-lg bg-reef px-3 py-2 text-sm font-bold text-white hover:bg-teal-800"
+    >
+      <Plus size={17} />
+      Добавить
+    </button>
+  )}
+  <button
+    type="button"
+    onClick={onSignOut}
+    className="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100"
+    aria-label="Выйти"
+  >
+    <LogOut size={18} />
+  </button>
+</div>
         </div>
       </header>
 
