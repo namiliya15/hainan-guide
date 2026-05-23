@@ -206,7 +206,7 @@ function AuthPanel({ onSession }) {
   );
 }
 
-function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete }) {
+function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete, userEmail }) {
   const [copiedName, setCopiedName] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
   
@@ -317,22 +317,26 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete })
             </a>
           )}
         </div>
-        <div className="flex justify-end gap-2 pt-1 border-t border-slate-100">
-          <button
-            onClick={() => onEdit(place)}
-            className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-reef transition"
-          >
-            <Edit size={14} />
-            Редактировать
-          </button>
-          <button
-            onClick={() => onDelete(place.id)}
-            className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-red-600 transition"
-          >
-            <Trash2 size={14} />
-            Удалить
-          </button>
-        </div>
+        
+        {/* Кнопки редактирования/удаления — видны ТОЛЬКО администратору */}
+        {userEmail === 'namiliya15@gmail.com' && (
+          <div className="flex justify-end gap-2 pt-1 border-t border-slate-100">
+            <button
+              onClick={() => onEdit(place)}
+              className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-reef transition"
+            >
+              <Edit size={14} />
+              Редактировать
+            </button>
+            <button
+              onClick={() => onDelete(place.id)}
+              className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-red-600 transition"
+            >
+              <Trash2 size={14} />
+              Удалить
+            </button>
+          </div>
+        )}
       </div>
     </article>
   );
