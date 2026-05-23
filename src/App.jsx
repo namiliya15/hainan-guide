@@ -30,7 +30,6 @@ import {
   User,
   WifiOff,
   X,
-  Search,
   Copy,
   Edit,
   Trash2,
@@ -44,22 +43,6 @@ const LOCAL_PLACES_KEY = 'hainan-guide-places';
 const LOCAL_FAVORITES_KEY = 'hainan-guide-favorites';
 const LOCAL_CATEGORY_KEY = 'hainan-guide-category-order';
 const SANYA_CENTER = [18.2218, 109.515];
-
-// Функция для извлечения координат из ссылки Amap
-function parseCoordinatesFromAmapUrl(url) {
-  if (!url) return null;
-  
-  // Amap: https://uri.amap.com/marker?position=109.515,18.2218
-  const amapMatch = url.match(/position=([-\d.]+),([-\d.]+)/);
-  if (amapMatch) {
-    return {
-      lat: parseFloat(amapMatch[2]),
-      lng: parseFloat(amapMatch[1]),
-    };
-  }
-  
-  return null;
-}
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -246,7 +229,9 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete })
   
   return (
     <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm group relative">
-      <img src={place.photo_url} alt={place.name} className="h-44 w-full object-cover" loading="lazy" />
+      {place.photo_url && (
+        <img src={place.photo_url} alt={place.name} className="h-44 w-full object-cover" loading="lazy" />
+      )}
       <div className="space-y-3 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -354,28 +339,6 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete })
 }
 
 function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, isEditing }) {
-  const [extracting, setExtracting] = useState(false);
-  
-  const handleExtractCoordinates = async () => {
-    if (!draft.amap_url) {
-      alert('Сначала введите ссылку Amap');
-      return;
-    }
-    setExtracting(true);
-    
-    // Имитация задержки для лучшего UX
-    setTimeout(() => {
-      const coords = parseCoordinatesFromAmapUrl(draft.amap_url);
-      if (coords) {
-        onChange({ lat: coords.lat.toFixed(6), lng: coords.lng.toFixed(6) });
-        alert('Координаты найдены! Место будет отображаться на карте.');
-      } else {
-        alert('Не удалось извлечь координаты из ссылки Amap. Убедитесь, что ссылка содержит position=долгота,широта');
-      }
-      setExtracting(false);
-    }, 500);
-  };
-  
   return (
     <div className="fixed inset-0 z-[1000] grid place-items-center bg-slate-950/50 p-4">
       <form onSubmit={onSubmit} className="max-h-[92vh] w-full max-w-2xl overflow-auto rounded-lg bg-white p-5 shadow-2xl">
@@ -390,10 +353,10 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, isEditin
           <Input label="Китайское название" value={draft.chinese_name} onChange={(value) => onChange({ chinese_name: value })} />
           <div className="sm:col-span-2">
             <Input 
-              label="Адрес (для копирования)" 
+              label="Адрес" 
               value={draft.chinese_address || ''} 
               onChange={(value) => onChange({ chinese_address: value })} 
-              placeholder="Китайский или английский адрес (будет отображаться в карточке для копирования)"
+              placeholder="Китайский или английский адрес"
             />
           </div>
           <label className="block">
@@ -408,30 +371,12 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, isEditin
               ))}
             </select>
           </label>
-          <Input label="URL фото" value={draft.photo_url} onChange={(value) => onChange({ photo_url: value })} required />
-          <div className="sm:col-span-2">
-            <Input 
-              label="Ссылка Amap (для автоматического получения координат)" 
-              value={draft.amap_url || ''} 
-              onChange={(value) => onChange({ amap_url: value })} 
-              placeholder="https://uri.amap.com/marker?position=109.515,18.2218"
-            />
-            {draft.amap_url && (
-              <button
-                type="button"
-                onClick={handleExtractCoordinates}
-                disabled={extracting}
-                className="mt-1 inline-flex items-center gap-1 text-xs text-reef hover:underline"
-              >
-                <Search size={12} />
-                {extracting ? 'Извлечение координат...' : 'Получить координаты из ссылки Amap'}
-              </button>
-            )}
-          </div>
-          <Input label="Ссылка Trip.com (необязательно)" value={draft.trip_url || ''} onChange={(value) => onChange({ trip_url: value })} />
+          <Input label="URL фото" value={draft.photo_url || ''} onChange={(value) => onChange({ photo_url: value })} />
+          <Input label="Ссылка Amap" value={draft.amap_url || ''} onChange={(value) => onChange({ amap_url: value })} placeholder="https://uri.amap.com/marker?position=109.515,18.2218" />
+          <Input label="Ссылка Trip.com" value={draft.trip_url || ''} onChange={(value) => onChange({ trip_url: value })} />
         </div>
         <label className="mt-3 block">
-          <span className="mb-1 block text-sm font-semibold text-slate-700">Описание (необязательно)</span>
+          <span className="mb-1 block text-sm font-semibold text-slate-700">Описание</span>
           <textarea
             className="min-h-28 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-reef focus:ring-2 focus:ring-teal-100"
             value={draft.description || ''}
@@ -444,9 +389,9 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, isEditin
           </p>
         ) : (
           <p className="mt-2 text-xs text-amber-600">
-            💡 Координаты не заданы. Место не будет отображаться на карте.<br />
-            • Кликните на карту, чтобы добавить координаты<br />
-            • Или вставьте ссылку Amap и нажмите «Получить координаты»
+            💡 Координаты не заданы. Место не будет отображаться на карте.
+            <br />
+            • Кликните на карту, чтобы добавить координаты
           </p>
         )}
         <button 
@@ -580,7 +525,7 @@ function GuideApp({ session, onSignOut }) {
       chinese_address: draft.chinese_address?.trim() || null,
       category: draft.category,
       description: draft.description?.trim() || null,
-      photo_url: draft.photo_url.trim(),
+      photo_url: draft.photo_url?.trim() || null,
       lat: draft.lat ? Number(draft.lat) : null,
       lng: draft.lng ? Number(draft.lng) : null,
       amap_url: draft.amap_url?.trim() || null,
@@ -615,7 +560,7 @@ function GuideApp({ session, onSignOut }) {
       chinese_address: draft.chinese_address?.trim() || null,
       category: draft.category,
       description: draft.description?.trim() || null,
-      photo_url: draft.photo_url.trim(),
+      photo_url: draft.photo_url?.trim() || null,
       lat: draft.lat ? Number(draft.lat) : null,
       lng: draft.lng ? Number(draft.lng) : null,
       amap_url: draft.amap_url?.trim() || null,
@@ -891,7 +836,7 @@ function emptyDraft() {
     chinese_name: '',
     chinese_address: '',
     category: 'Рестораны и кафе',
-    photo_url: 'https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=1200&q=80',
+    photo_url: '',
     description: '',
     lat: '',
     lng: '',
