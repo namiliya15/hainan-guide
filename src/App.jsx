@@ -204,6 +204,7 @@ function AuthPanel({ onSession }) {
 
 function PlaceCard({ place, favorite, onFavorite, onShowMap }) {
   const amapUrl = place.amap_url || `https://uri.amap.com/marker?position=${place.lng},${place.lat}&name=${encodeURIComponent(place.chinese_name || place.name)}`;
+  
   return (
     <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <img src={place.photo_url} alt={place.name} className="h-44 w-full object-cover" loading="lazy" />
@@ -244,6 +245,17 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap }) {
             <MapPin size={16} />
             Показать на карте
           </button>
+          {place.trip_url && (
+            <a
+              href={place.trip_url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700"
+            >
+              <Compass size={16} />
+              Открыть на Trip.com
+            </a>
+          )}
         </div>
       </div>
     </article>
@@ -279,6 +291,7 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose }) {
           <Input label="Широта" type="number" step="any" value={draft.lat} onChange={(value) => onChange({ lat: value })} required />
           <Input label="Долгота" type="number" step="any" value={draft.lng} onChange={(value) => onChange({ lng: value })} required />
           <Input label="Ссылка Amap (необязательно)" value={draft.amap_url} onChange={(value) => onChange({ amap_url: value })} />
+          <Input label="Ссылка Trip.com (необязательно)" value={draft.trip_url} onChange={(value) => onChange({ trip_url: value })} />
         </div>
         <label className="mt-3 block">
           <span className="mb-1 block text-sm font-semibold text-slate-700">Описание</span>
@@ -413,6 +426,7 @@ function GuideApp({ session, onSignOut }) {
       lat: Number(draft.lat),
       lng: Number(draft.lng),
       amap_url: draft.amap_url ? draft.amap_url.trim() : null,
+      trip_url: draft.trip_url ? draft.trip_url.trim() : null,
       is_public: true,
       user_id: user.id,
     };
@@ -620,6 +634,7 @@ function emptyDraft() {
     lat: '18.221800',
     lng: '109.515000',
     amap_url: '',
+    trip_url: '',
   };
 }
 
