@@ -145,13 +145,6 @@ function AuthPanel({ onSession }) {
               Сохраняйте избранное, добавляйте свои места, меняйте порядок меню и пользуйтесь гидом офлайн.
             </p>
           </div>
-          <div className="grid max-w-2xl gap-3 sm:grid-cols-3">
-            {['15 стартовых мест', 'Ссылки на Amap', 'Офлайн PWA'].map((item) => (
-              <div key={item} className="rounded-lg border border-slate-200 bg-white p-4 font-semibold text-slate-700">
-                {item}
-              </div>
-            ))}
-          </div>
         </div>
 
         <form onSubmit={submit} className="rounded-lg border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/70">
@@ -286,7 +279,7 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose }) {
           <Input label="URL фото" value={draft.photo_url} onChange={(value) => onChange({ photo_url: value })} required />
           <Input label="Широта" type="number" step="any" value={draft.lat} onChange={(value) => onChange({ lat: value })} required />
           <Input label="Долгота" type="number" step="any" value={draft.lng} onChange={(value) => onChange({ lng: value })} required />
-          <Input label="Ссылка Amap (необязательно)" value={draft.amap_url} onChange={(value) => onChange({ amap_url: value })} />
+          <Input label="Ссылка Amap" value={draft.amap_url} onChange={(value) => onChange({ amap_url: value })} />
         </div>
         <label className="mt-3 block">
           <span className="mb-1 block text-sm font-semibold text-slate-700">Описание</span>
