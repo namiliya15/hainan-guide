@@ -450,6 +450,7 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete, o
 
 function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, isEditing, onUploadImages }) {
   const [uploading, setUploading] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
   const fileInputRef = useRef(null);
   
   const handleFileSelect = async (e) => {
@@ -467,6 +468,13 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, isEditin
     onChange({ photos: JSON.stringify([...currentPhotos, ...uploadedUrls]) });
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+  
+  const handleAddUrl = () => {
+    if (!urlInput.trim()) return;
+    const currentPhotos = draft.photos ? (typeof draft.photos === 'string' ? JSON.parse(draft.photos) : draft.photos) : [];
+    onChange({ photos: JSON.stringify([...currentPhotos, urlInput.trim()]) });
+    setUrlInput('');
   };
   
   const removePhoto = (index) => {
@@ -517,9 +525,12 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, isEditin
             </select>
           </label>
           
+          {/* Фото — загрузка файлов и URL */}
           <div className="sm:col-span-2">
             <label className="block">
               <span className="mb-1 block text-sm font-semibold text-slate-700">Фотографии</span>
+              
+              {/* Превью загруженных фото */}
               <div className="flex flex-wrap gap-2 mb-2">
                 {previewPhotos.map((photo, idx) => (
                   <div key={idx} className="relative w-16 h-16 rounded overflow-hidden border">
@@ -533,9 +544,13 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, isEditin
                     </button>
                   </div>
                 ))}
-                <label className="w-16 h-16 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-reef">
-                  <Upload size={20} className="text-slate-400" />
-                  <span className="text-xs text-slate-400">Загрузить</span>
+              </div>
+              
+              {/* Кнопка загрузки файлов */}
+              <div className="flex flex-wrap gap-3 items-center">
+                <label className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 cursor-pointer">
+                  <Upload size={16} />
+                  Загрузить фото
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -546,9 +561,28 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, isEditin
                     disabled={uploading}
                   />
                 </label>
+                
+                {/* Поле для ввода URL */}
+                <div className="flex-1 flex gap-2">
+                  <input
+                    type="text"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    placeholder="Или вставьте ссылку на фото..."
+                    className="flex-1 rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-reef focus:ring-2 focus:ring-teal-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddUrl}
+                    disabled={!urlInput.trim()}
+                    className="inline-flex items-center gap-1 rounded-lg bg-reef px-3 py-2 text-sm font-bold text-white hover:bg-teal-800 disabled:opacity-50"
+                  >
+                    Добавить
+                  </button>
+                </div>
               </div>
-              {uploading && <p className="text-xs text-reef">Загрузка...</p>}
-              <p className="text-xs text-slate-400 mt-1">Можно загрузить несколько фото (JPG, PNG)</p>
+              {uploading && <p className="text-xs text-reef mt-1">Загрузка...</p>}
+              <p className="text-xs text-slate-400 mt-1">Можно загрузить несколько фото (JPG, PNG) или добавить по ссылке</p>
             </label>
           </div>
           
