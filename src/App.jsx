@@ -469,7 +469,7 @@ function MapFocus({ place }) {
   return null;
 }
 
-function DraggableMarker({ place, onPositionChange, onMarkerClick }) {
+function DraggableMarker({ place, onPositionChange }) {
   const [position, setPosition] = useState([place.lat, place.lng]);
   
   const eventHandlers = {
@@ -479,11 +479,6 @@ function DraggableMarker({ place, onPositionChange, onMarkerClick }) {
       const newLng = marker.getLatLng().lng;
       setPosition([newLat, newLng]);
       onPositionChange(place.id, newLat, newLng);
-    },
-    click() {
-      if (onMarkerClick) {
-        onMarkerClick(place);
-      }
     },
   };
   
@@ -497,7 +492,7 @@ function DraggableMarker({ place, onPositionChange, onMarkerClick }) {
         <div className="text-sm">
           <strong>{place.name}</strong>
           <br />
-          <span className="text-xs text-gray-500">Нажмите для открытия карточки</span>
+          <span className="text-xs text-gray-500">Перетащите маркер, чтобы изменить положение</span>
         </div>
       </Popup>
     </Marker>
@@ -515,7 +510,6 @@ function GuideApp({ session, onSignOut }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editingPlaceId, setEditingPlaceId] = useState(null);
   const [selectedPlace, setSelectedPlace] = useState(null);
-  const [selectedPlaceId, setSelectedPlaceId] = useState(null);
   const [notice, setNotice] = useState('');
   const [draft, setDraft] = useState(() => emptyDraft());
   const [isAdmin, setIsAdmin] = useState(false);
@@ -754,18 +748,7 @@ function GuideApp({ session, onSignOut }) {
   function openPlaceOnMap(place) {
     if (place.lat && place.lng) {
       setSelectedPlace(place);
-      setSelectedPlaceId(place.id);
       document.getElementById('global-map')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setTimeout(() => {
-        const cardElement = document.getElementById(`place-card-${place.id}`);
-        if (cardElement) {
-          cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          cardElement.classList.add('ring-2', 'ring-reef', 'shadow-lg', 'scale-[1.02]');
-          setTimeout(() => {
-            cardElement.classList.remove('ring-2', 'ring-reef', 'shadow-lg', 'scale-[1.02]');
-          }, 2000);
-        }
-      }, 100);
     }
   }
 
@@ -912,22 +895,15 @@ function GuideApp({ session, onSignOut }) {
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {visiblePlaces.map((place) => (
-              <div
+              <PlaceCard
                 key={place.id}
-                id={`place-card-${place.id}`}
-                className={`transition-all duration-300 ${
-                  selectedPlaceId === place.id ? 'ring-2 ring-reef shadow-lg scale-[1.02]' : ''
-                }`}
-              >
-                <PlaceCard
-                  place={place}
-                  favorite={favorites.includes(place.id)}
-                  onFavorite={toggleFavorite}
-                  onShowMap={openPlaceOnMap}
-                  onEdit={editPlace}
-                  onDelete={deletePlace}
-                />
-              </div>
+                place={place}
+                favorite={favorites.includes(place.id)}
+                onFavorite={toggleFavorite}
+                onShowMap={openPlaceOnMap}
+                onEdit={editPlace}
+                onDelete={deletePlace}
+              />
             ))}
           </div>
 
@@ -937,8 +913,8 @@ function GuideApp({ session, onSignOut }) {
                 <h2 className="text-lg font-black text-slate-950">Глобальная карта</h2>
                 <p className="text-sm text-slate-500">
                   {isAdmin 
-                    ? 'Нажмите на маркер, чтобы открыть карточку места. Перетащите маркер, чтобы изменить положение.' 
-                    : 'Нажмите на маркер, чтобы открыть карточку места.'}
+                    ? 'Нажмите на карту, чтобы добавить координаты. Перетащите маркер, чтобы изменить положение места.' 
+                    : 'Нажмите на карту, чтобы добавить координаты места.'}
                 </p>
               </div>
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{places.filter(p => p.lat && p.lng).length} меток</span>
@@ -961,16 +937,9 @@ function GuideApp({ session, onSignOut }) {
                       key={place.id} 
                       place={place} 
                       onPositionChange={updatePlaceCoordinates}
-                      onMarkerClick={openPlaceOnMap}
                     />
                   ) : (
-                    <Marker 
-                      key={place.id} 
-                      position={[place.lat, place.lng]}
-                      eventHandlers={{
-                        click: () => openPlaceOnMap(place)
-                      }}
-                    >
+                    <Marker key={place.id} position={[place.lat, place.lng]}>
                       <Popup>
                         <strong>{place.name}</strong>
                         <br />
