@@ -1,12 +1,7 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation as SwiperNav, Pagination } from 'swiper/modules';
-import 'swiper/css';
-import 'swiper/css/navigation';
-import 'swiper/css/pagination';
 import {
   DndContext,
   PointerSensor,
@@ -40,10 +35,6 @@ import {
   Trash2,
   Check,
   Search,
-  Upload,
-  Image as ImageIcon,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react';
 import { defaultCategories } from './data/categories';
 import { samplePlaces } from './data/samplePlaces';
@@ -216,68 +207,7 @@ function AuthPanel({ onSession }) {
   );
 }
 
-function ImageCarousel({ images, onDelete, isAdmin }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  
-  if (!images || images.length === 0) {
-    return (
-      <div className="h-44 w-full bg-slate-100 flex items-center justify-center">
-        <ImageIcon className="text-slate-400" size={32} />
-      </div>
-    );
-  }
-  
-  return (
-    <div className="relative group">
-      <Swiper
-        modules={[SwiperNav, Pagination]}
-        navigation={{
-          nextEl: '.swiper-button-next',
-          prevEl: '.swiper-button-prev',
-        }}
-        pagination={{ clickable: true }}
-        loop={images.length > 1}
-        className="h-44"
-      >
-        {images.map((img, idx) => (
-          <SwiperSlide key={idx}>
-            <img
-              src={img}
-              alt={`Фото ${idx + 1}`}
-              className="w-full h-44 object-cover"
-            />
-          </SwiperSlide>
-        ))}
-      </Swiper>
-      {images.length > 1 && (
-        <>
-          <button
-            className="swiper-button-prev absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition z-10"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <button
-            className="swiper-button-next absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition z-10"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <ChevronRight size={20} />
-          </button>
-        </>
-      )}
-      {isAdmin && onDelete && images.length > 0 && (
-        <button
-          onClick={() => onDelete(currentIndex)}
-          className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition z-20"
-        >
-          <Trash2 size={14} />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete, onDeleteImage }) {
+function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete }) {
   const [copiedName, setCopiedName] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -307,19 +237,9 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete, o
     }
   };
   
-  let photos = [];
-  if (place.photos) {
-    try {
-      photos = typeof place.photos === 'string' ? JSON.parse(place.photos) : place.photos;
-    } catch {
-      photos = [place.photos];
-    }
-  } else if (place.photo_url) {
-    photos = [place.photo_url];
-  }
-  
+  // Форматирование описания с сохранением переносов строк
   let formattedDescription = null;
-  if (place.description && typeof place.description === 'string' && place.description.trim()) {
+  if (place.description && place.description.trim()) {
     const lines = place.description.split('\n');
     formattedDescription = lines.map((line, i) => (
       <span key={i}>
@@ -331,11 +251,9 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete, o
   
   return (
     <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm group relative">
-      <ImageCarousel 
-        images={photos} 
-        onDelete={(idx) => onDeleteImage?.(place.id, idx)}
-        isAdmin={isAdmin}
-      />
+      {place.photo_url && (
+        <img src={place.photo_url} alt={place.name} className="h-44 w-full object-cover" loading="lazy" />
+      )}
       <div className="space-y-3 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -447,42 +365,7 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete, o
   );
 }
 
-function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, isEditing, onUploadImages }) {
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef(null);
-  
-  const handleFileSelect = async (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
-    
-    setUploading(true);
-    const uploadedUrls = [];
-    for (const file of files) {
-      const url = await onUploadImages(file);
-      if (url) uploadedUrls.push(url);
-    }
-    
-    const currentPhotos = draft.photos ? (typeof draft.photos === 'string' ? JSON.parse(draft.photos) : draft.photos) : [];
-    onChange({ photos: JSON.stringify([...currentPhotos, ...uploadedUrls]) });
-    setUploading(false);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-  
-  const removePhoto = (index) => {
-    const currentPhotos = draft.photos ? (typeof draft.photos === 'string' ? JSON.parse(draft.photos) : draft.photos) : [];
-    currentPhotos.splice(index, 1);
-    onChange({ photos: JSON.stringify(currentPhotos) });
-  };
-  
-  let previewPhotos = [];
-  if (draft.photos) {
-    try {
-      previewPhotos = typeof draft.photos === 'string' ? JSON.parse(draft.photos) : draft.photos;
-    } catch {
-      previewPhotos = [];
-    }
-  }
-  
+function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, isEditing }) {
   return (
     <div className="fixed inset-0 z-[1000] grid place-items-center bg-slate-950/50 p-4">
       <form onSubmit={onSubmit} className="max-h-[92vh] w-full max-w-2xl overflow-auto rounded-lg bg-white p-5 shadow-2xl">
@@ -515,42 +398,7 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, isEditin
               ))}
             </select>
           </label>
-          
-          <div className="sm:col-span-2">
-            <label className="block">
-              <span className="mb-1 block text-sm font-semibold text-slate-700">Фотографии</span>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {previewPhotos.map((photo, idx) => (
-                  <div key={idx} className="relative w-16 h-16 rounded overflow-hidden border">
-                    <img src={photo} alt={`preview ${idx}`} className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => removePhoto(idx)}
-                      className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-0.5"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ))}
-                <label className="w-16 h-16 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-reef">
-                  <Upload size={20} className="text-slate-400" />
-                  <span className="text-xs text-slate-400">Загрузить</span>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleFileSelect}
-                    className="hidden"
-                    disabled={uploading}
-                  />
-                </label>
-              </div>
-              {uploading && <p className="text-xs text-reef">Загрузка...</p>}
-              <p className="text-xs text-slate-400 mt-1">Можно загрузить несколько фото (JPG, PNG)</p>
-            </label>
-          </div>
-          
+          <Input label="URL фото" value={draft.photo_url || ''} onChange={(value) => onChange({ photo_url: value })} />
           <Input label="Ссылка Amap" value={draft.amap_url || ''} onChange={(value) => onChange({ amap_url: value })} placeholder="https://uri.amap.com/marker?position=109.515,18.2218" />
           <Input label="Ссылка Trip.com" value={draft.trip_url || ''} onChange={(value) => onChange({ trip_url: value })} />
         </div>
@@ -577,7 +425,6 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, isEditin
         <button 
           type="submit" 
           className="mt-4 inline-flex items-center gap-2 rounded-lg bg-reef px-4 py-3 font-bold text-white hover:bg-teal-800"
-          disabled={uploading}
         >
           <Plus size={18} />
           {isEditing ? 'Сохранить изменения' : 'Сохранить место'}
@@ -621,36 +468,6 @@ function MapFocus({ place }) {
     }
   }, [map, place]);
   return null;
-}
-
-function DraggableMarker({ place, onPositionChange }) {
-  const [position, setPosition] = useState([place.lat, place.lng]);
-  
-  const eventHandlers = useMemo(() => ({
-    dragend(event) {
-      const marker = event.target;
-      const newLat = marker.getLatLng().lat;
-      const newLng = marker.getLatLng().lng;
-      setPosition([newLat, newLng]);
-      onPositionChange(place.id, newLat, newLng);
-    },
-  }), [place.id, onPositionChange]);
-  
-  return (
-    <Marker
-      position={position}
-      draggable={true}
-      eventHandlers={eventHandlers}
-    >
-      <Popup>
-        <div className="text-sm">
-          <strong>{place.name}</strong>
-          <br />
-          <span className="text-xs text-gray-500">Перетащите маркер, чтобы изменить положение</span>
-        </div>
-      </Popup>
-    </Marker>
-  );
 }
 
 function GuideApp({ session, onSignOut }) {
@@ -698,48 +515,6 @@ function GuideApp({ session, onSignOut }) {
     setPlaces(remotePlaces || []);
     setFavorites(remoteFavorites?.map((row) => row.place_id) || []);
     setCategoryOrder(profile?.category_order?.length ? profile.category_order : defaultCategories);
-  }
-
-  async function updatePlaceCoordinates(placeId, lat, lng) {
-    if (!isAdmin) return;
-    
-    const { error } = await supabase
-      .from('places')
-      .update({ lat, lng, updated_at: new Date() })
-      .eq('id', placeId);
-    
-    if (error) {
-      setNotice('Ошибка обновления координат');
-    } else {
-      setPlaces(places.map(p => p.id === placeId ? { ...p, lat, lng } : p));
-      setNotice('Координаты обновлены');
-      setTimeout(() => setNotice(''), 2000);
-    }
-  }
-
-  async function uploadPlaceImage(file) {
-    if (!hasSupabaseConfig) return null;
-    
-    const tempId = crypto.randomUUID();
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${tempId}/${Date.now()}.${fileExt}`;
-    const filePath = `place-photos/${fileName}`;
-    
-    const { data, error } = await supabase.storage
-      .from('place-images')
-      .upload(filePath, file);
-    
-    if (error) {
-      console.error('Ошибка загрузки:', error);
-      setNotice('Ошибка загрузки фото: ' + error.message);
-      return null;
-    }
-    
-    const { data: { publicUrl } } = supabase.storage
-      .from('place-images')
-      .getPublicUrl(filePath);
-    
-    return publicUrl;
   }
 
   const searchPlaces = useMemo(() => {
@@ -808,7 +583,7 @@ function GuideApp({ session, onSignOut }) {
       chinese_address: draft.chinese_address?.trim() || null,
       category: draft.category,
       description: draft.description?.trim() || null,
-      photos: draft.photos || null,
+      photo_url: draft.photo_url?.trim() || null,
       lat: draft.lat ? Number(draft.lat) : null,
       lng: draft.lng ? Number(draft.lng) : null,
       amap_url: draft.amap_url?.trim() || null,
@@ -843,7 +618,7 @@ function GuideApp({ session, onSignOut }) {
       chinese_address: draft.chinese_address?.trim() || null,
       category: draft.category,
       description: draft.description?.trim() || null,
-      photos: draft.photos || null,
+      photo_url: draft.photo_url?.trim() || null,
       lat: draft.lat ? Number(draft.lat) : null,
       lng: draft.lng ? Number(draft.lng) : null,
       amap_url: draft.amap_url?.trim() || null,
@@ -895,51 +670,13 @@ function GuideApp({ session, onSignOut }) {
     setNotice(error ? error.message : 'Место удалено.');
   }
 
-  async function deleteImageFromPlace(placeId, imageIndex) {
-    const place = places.find(p => p.id === placeId);
-    if (!place) return;
-    
-    let photos = [];
-    try {
-      photos = typeof place.photos === 'string' ? JSON.parse(place.photos) : (place.photos || []);
-    } catch {
-      photos = [];
-    }
-    
-    photos.splice(imageIndex, 1);
-    const updatedPhotos = photos.length > 0 ? JSON.stringify(photos) : null;
-    
-    if (!hasSupabaseConfig || session.localOnly) {
-      const updatedPlaces = places.map(p => 
-        p.id === placeId ? { ...p, photos: updatedPhotos } : p
-      );
-      setPlaces(updatedPlaces);
-      writeJson(LOCAL_PLACES_KEY, updatedPlaces);
-      setNotice('Фото удалено локально');
-      return;
-    }
-    
-    const { error } = await supabase
-      .from('places')
-      .update({ photos: updatedPhotos })
-      .eq('id', placeId);
-    
-    if (error) {
-      setNotice('Ошибка удаления фото');
-    } else {
-      setPlaces(places.map(p => p.id === placeId ? { ...p, photos: updatedPhotos } : p));
-      setNotice('Фото удалено');
-    }
-    setTimeout(() => setNotice(''), 2000);
-  }
-
   function editPlace(place) {
     setDraft({
       name: place.name || '',
       chinese_name: place.chinese_name || '',
       chinese_address: place.chinese_address || '',
       category: place.category || 'Рестораны и кафе',
-      photos: place.photos || null,
+      photo_url: place.photo_url || '',
       description: place.description || '',
       lat: place.lat?.toString() || '',
       lng: place.lng?.toString() || '',
@@ -1067,13 +804,13 @@ function GuideApp({ session, onSignOut }) {
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex-1 min-w-[200px]">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input
                   type="text"
-                  placeholder="Поиск по всем местам (несколько слов через пробел)..."
+                  placeholder="Поиск по названию или адресу..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full rounded-lg border border-slate-300 py-2 pl-10 pr-4 outline-none focus:border-reef focus:ring-2 focus:ring-teal-100"
@@ -1088,22 +825,18 @@ function GuideApp({ session, onSignOut }) {
                 )}
               </div>
             </div>
-            {!searchQuery && (
-              <button
-                type="button"
-                onClick={() => setActiveCategory('Избранное')}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 shrink-0"
-              >
-                <Heart size={16} />
-                Избранное
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setActiveCategory('Избранное')}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 shrink-0"
+            >
+              <Heart size={16} />
+              Избранное
+            </button>
           </div>
 
           <div>
-            <p className="text-sm font-bold text-hibiscus">
-              {searchQuery ? 'Результаты поиска' : activeCategory}
-            </p>
+            <p className="text-sm font-bold text-hibiscus">{activeCategory}</p>
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-black text-slate-950">
                 {visiblePlaces.length ? `${visiblePlaces.length} мест` : 'Пока нет мест'}
@@ -1124,7 +857,6 @@ function GuideApp({ session, onSignOut }) {
                 onShowMap={openPlaceOnMap}
                 onEdit={editPlace}
                 onDelete={deletePlace}
-                onDeleteImage={deleteImageFromPlace}
               />
             ))}
           </div>
@@ -1133,11 +865,7 @@ function GuideApp({ session, onSignOut }) {
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
               <div>
                 <h2 className="text-lg font-black text-slate-950">Глобальная карта</h2>
-                <p className="text-sm text-slate-500">
-                  {isAdmin 
-                    ? 'Нажмите на карту, чтобы добавить координаты. Перетащите маркер, чтобы изменить положение места.' 
-                    : 'Нажмите на карту, чтобы добавить координаты места.'}
-                </p>
+                <p className="text-sm text-slate-500">Нажмите на карту, чтобы добавить координаты места.</p>
               </div>
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{places.filter(p => p.lat && p.lng).length} меток</span>
             </div>
@@ -1150,24 +878,16 @@ function GuideApp({ session, onSignOut }) {
                 <MapClickHandler onPick={beginMapAdd} />
                 <MapFocus place={selectedPlace} />
                 {places.filter(p => p.lat && p.lng).map((place) => (
-                  isAdmin ? (
-                    <DraggableMarker 
-                      key={place.id} 
-                      place={place} 
-                      onPositionChange={updatePlaceCoordinates}
-                    />
-                  ) : (
-                    <Marker key={place.id} position={[place.lat, place.lng]}>
-                      <Popup>
-                        <strong>{place.name}</strong>
-                        <br />
-                        {place.chinese_name}
-                        <br />
-                        {place.category}
-                        {place.chinese_address && <><br />{place.chinese_address}</>}
-                      </Popup>
-                    </Marker>
-                  )
+                  <Marker key={place.id} position={[place.lat, place.lng]}>
+                    <Popup>
+                      <strong>{place.name}</strong>
+                      <br />
+                      {place.chinese_name}
+                      <br />
+                      {place.category}
+                      {place.chinese_address && <><br />{place.chinese_address}</>}
+                    </Popup>
+                  </Marker>
                 ))}
                 {selectedPlace && selectedPlace.lat && selectedPlace.lng && (
                   <Marker position={[selectedPlace.lat, selectedPlace.lng]}>
@@ -1190,7 +910,6 @@ function GuideApp({ session, onSignOut }) {
           onSubmit={isEditing ? updatePlace : addPlace}
           onClose={handleCloseForm}
           isEditing={isEditing}
-          onUploadImages={uploadPlaceImage}
         />
       )}
     </div>
@@ -1203,7 +922,7 @@ function emptyDraft() {
     chinese_name: '',
     chinese_address: '',
     category: 'Рестораны и кафе',
-    photos: null,
+    photo_url: '',
     description: '',
     lat: '',
     lng: '',
