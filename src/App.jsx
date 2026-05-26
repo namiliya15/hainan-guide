@@ -307,7 +307,6 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete, o
     }
   };
   
-  // Парсим photos
   let photos = [];
   if (place.photos) {
     try {
@@ -319,7 +318,6 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete, o
     photos = [place.photo_url];
   }
   
-  // Форматирование описания
   const formattedDescription = place.description?.split('\n').map((line, i) => (
     <span key={i}>
       {line}
@@ -514,7 +512,6 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, isEditin
             </select>
           </label>
           
-          {/* Фото */}
           <div className="sm:col-span-2">
             <label className="block">
               <span className="mb-1 block text-sm font-semibold text-slate-700">Фотографии</span>
@@ -622,8 +619,7 @@ function MapFocus({ place }) {
   return null;
 }
 
-// Компонент для перетаскиваемого маркера (вынесен наружу)
-function DraggableMarker({ place, onPositionChange, onNotice }) {
+function DraggableMarker({ place, onPositionChange }) {
   const [position, setPosition] = useState([place.lat, place.lng]);
   
   const eventHandlers = useMemo(() => ({
@@ -700,7 +696,6 @@ function GuideApp({ session, onSignOut }) {
     setCategoryOrder(profile?.category_order?.length ? profile.category_order : defaultCategories);
   }
 
-  // Функция для обновления координат
   async function updatePlaceCoordinates(placeId, lat, lng) {
     if (!isAdmin) return;
     
@@ -718,7 +713,6 @@ function GuideApp({ session, onSignOut }) {
     }
   }
 
-  // Функция для загрузки фото в Storage
   async function uploadPlaceImage(file) {
     if (!hasSupabaseConfig) return null;
     
@@ -744,7 +738,6 @@ function GuideApp({ session, onSignOut }) {
     return publicUrl;
   }
 
-  // Поиск по нескольким словам по всем категориям
   const searchPlaces = useMemo(() => {
     if (!searchQuery.trim()) return null;
     
@@ -1070,7 +1063,6 @@ function GuideApp({ session, onSignOut }) {
             </div>
           )}
 
-          {/* Панель поиска */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex-1 min-w-[200px]">
               <div className="relative">
@@ -1159,7 +1151,6 @@ function GuideApp({ session, onSignOut }) {
                       key={place.id} 
                       place={place} 
                       onPositionChange={updatePlaceCoordinates}
-                      onNotice={setNotice}
                     />
                   ) : (
                     <Marker key={place.id} position={[place.lat, place.lng]}>
