@@ -469,6 +469,37 @@ function MapFocus({ place }) {
   return null;
 }
 
+// Компонент для перетаскиваемого маркера (только для админа)
+function DraggableMarker({ place, onPositionChange }) {
+  const [position, setPosition] = useState([place.lat, place.lng]);
+  
+  const eventHandlers = useMemo(() => ({
+    dragend(event) {
+      const marker = event.target;
+      const newLat = marker.getLatLng().lat;
+      const newLng = marker.getLatLng().lng;
+      setPosition([newLat, newLng]);
+      onPositionChange(place.id, newLat, newLng);
+    },
+  }), [place.id, onPositionChange]);
+  
+  return (
+    <Marker
+      position={position}
+      draggable={true}
+      eventHandlers={eventHandlers}
+    >
+      <Popup>
+        <div className="text-sm">
+          <strong>{place.name}</strong>
+          <br />
+          <span className="text-xs text-gray-500">Перетащите маркер, чтобы изменить положение</span>
+        </div>
+      </Popup>
+    </Marker>
+  );
+}
+
 function GuideApp({ session, onSignOut }) {
   const user = session.user;
   const [places, setPlaces] = useState([]);
@@ -514,6 +545,24 @@ function GuideApp({ session, onSignOut }) {
     setPlaces(remotePlaces || []);
     setFavorites(remoteFavorites?.map((row) => row.place_id) || []);
     setCategoryOrder(profile?.category_order?.length ? profile.category_order : defaultCategories);
+  }
+
+  // Функция для обновления координат (только для админа)
+  async function updatePlaceCoordinates(placeId, lat, lng) {
+    if (!isAdmin) return;
+    
+    const { error } = await supabase
+      .from('places')
+      .update({ lat, lng, updated_at: new Date() })
+      .eq('id', placeId);
+    
+    if (error) {
+      setNotice('Ошибка обновления координат');
+    } else {
+      setPlaces(places.map(p => p.id === placeId ? { ...p, lat, lng } : p));
+      setNotice('Координаты обновлены');
+      setTimeout(() => setNotice(''), 2000);
+    }
   }
 
   const searchPlaces = useMemo(() => {
@@ -807,7 +856,8 @@ function GuideApp({ session, onSignOut }) {
             <div className="flex-1 min-w-[200px]">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input                  type="text"
+                <input
+                  type="text"
                   placeholder="Поиск по названию или адресу..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -863,12 +913,16 @@ function GuideApp({ session, onSignOut }) {
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
               <div>
                 <h2 className="text-lg font-black text-slate-950">Глобальная карта</h2>
-                <p className="text-sm text-slate-500">Нажмите на карту, чтобы добавить координаты места.</p>
+                <p className="text-sm text-slate-500">
+                  {isAdmin 
+                    ? 'Нажмите на карту, чтобы добавить координаты. Перетащите маркер, чтобы изменить положение места.' 
+                    : 'Нажмите на карту, чтобы добавить координаты места.'}
+                </p>
               </div>
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{places.filter(p => p.lat && p.lng).length} меток</span>
             </div>
             <div className="h-[520px]">
-              <MapContainer center={selectedPlace && selectedPlace.lat && selectedPlace.lng ? [selectedPlace.lat, selectedPlace.lng] : SANYA_CENTER} zoom={13} scrollWheelZoom>
+              <MapContainer center={selectedPlace && selectedPlace.lat && selectedPlace.lng ? [selectedPlace.lat, selectedPlace.lng] : SANYA_CENTER} zoom={13} scrollWheelZoom}>
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -876,16 +930,24 @@ function GuideApp({ session, onSignOut }) {
                 <MapClickHandler onPick={beginMapAdd} />
                 <MapFocus place={selectedPlace} />
                 {places.filter(p => p.lat && p.lng).map((place) => (
-                  <Marker key={place.id} position={[place.lat, place.lng]}>
-                    <Popup>
-                      <strong>{place.name}</strong>
-                      <br />
-                      {place.chinese_name}
-                      <br />
-                      {place.category}
-                      {place.chinese_address && <><br />{place.chinese_address}</>}
-                    </Popup>
-                  </Marker>
+                  isAdmin ? (
+                    <DraggableMarker 
+                      key={place.id} 
+                      place={place} 
+                      onPositionChange={updatePlaceCoordinates}
+                    />
+                  ) : (
+                    <Marker key={place.id} position={[place.lat, place.lng]}>
+                      <Popup>
+                        <strong>{place.name}</strong>
+                        <br />
+                        {place.chinese_name}
+                        <br />
+                        {place.category}
+                        {place.chinese_address && <><br />{place.chinese_address}</>}
+                      </Popup>
+                    </Marker>
+                  )
                 ))}
                 {selectedPlace && selectedPlace.lat && selectedPlace.lng && (
                   <Marker position={[selectedPlace.lat, selectedPlace.lng]}>
