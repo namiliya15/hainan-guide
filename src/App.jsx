@@ -34,6 +34,8 @@ import {
   Edit,
   Trash2,
   Check,
+  Search,
+  Move,
 } from 'lucide-react';
 import { defaultCategories } from './data/categories';
 import { samplePlaces } from './data/samplePlaces';
@@ -206,6 +208,37 @@ function AuthPanel({ onSession }) {
   );
 }
 
+// Компонент для редактирования координат на карте (только для админа)
+function DraggableMarker({ place, onPositionChange }) {
+  const [position, setPosition] = useState([place.lat, place.lng]);
+  
+  const eventHandlers = useMemo(() => ({
+    dragend(event) {
+      const marker = event.target;
+      const newLat = marker.getLatLng().lat;
+      const newLng = marker.getLatLng().lng;
+      setPosition([newLat, newLng]);
+      onPositionChange(place.id, newLat, newLng);
+    },
+  }), [place.id, onPositionChange]);
+
+  return (
+    <Marker
+      position={position}
+      draggable={true}
+      eventHandlers={eventHandlers}
+    >
+      <Popup>
+        <div className="text-sm">
+          <strong>{place.name}</strong>
+          <br />
+          <span className="text-xs text-gray-500">Перетащите маркер, чтобы изменить положение</span>
+        </div>
+      </Popup>
+    </Marker>
+  );
+}
+
 function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete }) {
   const [copiedName, setCopiedName] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
@@ -214,9 +247,6 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete })
   useEffect(() => {
     const checkAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      console.log('PlaceCard - проверка администратора:');
-      console.log('  Email пользователя:', user?.email);
-      console.log('  isAdmin:', user?.email === 'namiliya15@gmail.com');
       setIsAdmin(user?.email === 'namiliya15@gmail.com');
     };
     checkAdmin();
@@ -238,6 +268,14 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete })
       console.error('Ошибка копирования:', err);
     }
   };
+  
+  // Форматирование описания: заменяем переносы строк на <br>
+  const formattedDescription = place.description?.split('\n').map((line, i) => (
+    <span key={i}>
+      {line}
+      {i < place.description.split('\n').length - 1 && <br />}
+    </span>
+  ));
   
   return (
     <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm group relative">
@@ -293,7 +331,9 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete })
           </div>
         </div>
         {place.description && (
-          <p className="text-sm leading-6 text-slate-600">{place.description}</p>
+          <div className="text-sm leading-6 text-slate-600">
+            {formattedDescription}
+          </div>
         )}
         <div className="flex flex-wrap gap-2">
           {amapUrl && (
@@ -396,6 +436,7 @@ function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, isEditin
             className="min-h-28 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-reef focus:ring-2 focus:ring-teal-100"
             value={draft.description || ''}
             onChange={(event) => onChange({ description: event.target.value })}
+            placeholder="Для переноса строки нажмите Enter"
           />
         </label>
         {draft.lat && draft.lng ? (
@@ -463,13 +504,24 @@ function GuideApp({ session, onSignOut }) {
   const [favorites, setFavorites] = useState([]);
   const [categoryOrder, setCategoryOrder] = useState(defaultCategories);
   const [activeCategory, setActiveCategory] = useState('Избранное');
+  const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingPlaceId, setEditingPlaceId] = useState(null);
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [notice, setNotice] = useState('');
   const [draft, setDraft] = useState(() => emptyDraft());
+  const [isAdmin, setIsAdmin] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
+  // Проверка на администратора
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      setIsAdmin(currentUser?.email === 'namiliya15@gmail.com');
+    };
+    checkAdmin();
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -494,10 +546,46 @@ function GuideApp({ session, onSignOut }) {
     setCategoryOrder(profile?.category_order?.length ? profile.category_order : defaultCategories);
   }
 
-  const visiblePlaces = useMemo(() => {
+  // Функция для обновления координат места (только для админа)
+  async function updatePlaceCoordinates(placeId, lat, lng) {
+    if (!isAdmin) return;
+    
+    const { error } = await supabase
+      .from('places')
+      .update({ lat, lng, updated_at: new Date() })
+      .eq('id', placeId);
+    
+    if (error) {
+      console.error('Ошибка обновления координат:', error);
+      setNotice('Ошибка обновления координат');
+    } else {
+      setPlaces(places.map(p => p.id === placeId ? { ...p, lat, lng } : p));
+      setNotice('Координаты обновлены');
+      setTimeout(() => setNotice(''), 2000);
+    }
+  }
+
+  // Фильтрация по категории и поиску
+  const filteredByCategory = useMemo(() => {
     if (activeCategory === 'Избранное') return places.filter((place) => favorites.includes(place.id));
     return places.filter((place) => place.category === activeCategory);
   }, [activeCategory, favorites, places]);
+
+  // Поиск по всем полям (название, китайское название, адрес, описание)
+  const visiblePlaces = useMemo(() => {
+    if (!searchQuery.trim()) return filteredByCategory;
+    
+    const query = searchQuery.toLowerCase().trim();
+    return filteredByCategory.filter((place) => {
+      return (
+        place.name?.toLowerCase().includes(query) ||
+        place.chinese_name?.toLowerCase().includes(query) ||
+        place.chinese_address?.toLowerCase().includes(query) ||
+        place.description?.toLowerCase().includes(query) ||
+        place.category?.toLowerCase().includes(query)
+      );
+    });
+  }, [filteredByCategory, searchQuery]);
 
   const counts = useMemo(() => {
     return categoryOrder.reduce((acc, category) => {
@@ -761,21 +849,48 @@ function GuideApp({ session, onSignOut }) {
             </div>
           )}
 
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-sm font-bold text-hibiscus">{activeCategory}</p>
-              <h2 className="text-2xl font-black text-slate-950">
-                {visiblePlaces.length ? `${visiblePlaces.length} мест` : 'Пока нет мест'}
-              </h2>
+          {/* Панель с поиском */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex-1 min-w-[200px]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Поиск по названию, адресу или описанию..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 py-2 pl-10 pr-4 outline-none focus:border-reef focus:ring-2 focus:ring-teal-100"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
             </div>
             <button
               type="button"
               onClick={() => setActiveCategory('Избранное')}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 shrink-0"
             >
               <Heart size={16} />
               Избранное
             </button>
+          </div>
+
+          <div>
+            <p className="text-sm font-bold text-hibiscus">{activeCategory}</p>
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-black text-slate-950">
+                {visiblePlaces.length ? `${visiblePlaces.length} мест` : 'Пока нет мест'}
+              </h2>
+              {searchQuery && visiblePlaces.length === 0 && (
+                <p className="text-sm text-slate-500">Ничего не найдено</p>
+              )}
+            </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -796,7 +911,11 @@ function GuideApp({ session, onSignOut }) {
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
               <div>
                 <h2 className="text-lg font-black text-slate-950">Глобальная карта</h2>
-                <p className="text-sm text-slate-500">Нажмите на карту, чтобы добавить координаты места.</p>
+                <p className="text-sm text-slate-500">
+                  {isAdmin 
+                    ? 'Нажмите на карту, чтобы добавить координаты. Перетащите маркер, чтобы изменить положение места.' 
+                    : 'Нажмите на карту, чтобы добавить координаты места.'}
+                </p>
               </div>
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{places.filter(p => p.lat && p.lng).length} меток</span>
             </div>
@@ -809,16 +928,24 @@ function GuideApp({ session, onSignOut }) {
                 <MapClickHandler onPick={beginMapAdd} />
                 <MapFocus place={selectedPlace} />
                 {places.filter(p => p.lat && p.lng).map((place) => (
-                  <Marker key={place.id} position={[place.lat, place.lng]}>
-                    <Popup>
-                      <strong>{place.name}</strong>
-                      <br />
-                      {place.chinese_name}
-                      <br />
-                      {place.category}
-                      {place.chinese_address && <><br />{place.chinese_address}</>}
-                    </Popup>
-                  </Marker>
+                  isAdmin && place.lat && place.lng ? (
+                    <DraggableMarker
+                      key={place.id}
+                      place={place}
+                      onPositionChange={updatePlaceCoordinates}
+                    />
+                  ) : (
+                    <Marker key={place.id} position={[place.lat, place.lng]}>
+                      <Popup>
+                        <strong>{place.name}</strong>
+                        <br />
+                        {place.chinese_name}
+                        <br />
+                        {place.category}
+                        {place.chinese_address && <><br />{place.chinese_address}</>}
+                      </Popup>
+                    </Marker>
+                  )
                 ))}
                 {selectedPlace && selectedPlace.lat && selectedPlace.lng && (
                   <Marker position={[selectedPlace.lat, selectedPlace.lng]}>
