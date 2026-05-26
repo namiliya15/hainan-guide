@@ -318,16 +318,13 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete, o
     photos = [place.photo_url];
   }
 
-  let formattedDescription = null;
-  if (place.description && place.description.trim()) {
-  const lines = place.description.split('\n');
-  formattedDescription = lines.map((line, i) => (
-    <span key={i}>
-      {line}
-      {i < lines.length - 1 && <br />}
-    </span>
-  ));
-}
+  const lines = place.description?.split('\n');
+  const formattedDescription = lines?.map((line, i) => (
+  <span key={i}>
+    {line}
+    {i < lines.length - 1 && <br />}
+  </span>
+));
   
   return (
     <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm group relative">
