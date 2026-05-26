@@ -469,11 +469,11 @@ function MapFocus({ place }) {
   return null;
 }
 
-// Компонент для перетаскиваемого маркера (только для админа)
+// Компонент для перетаскиваемого маркера
 function DraggableMarker({ place, onPositionChange }) {
   const [position, setPosition] = useState([place.lat, place.lng]);
   
-  const eventHandlers = useMemo(() => ({
+  const eventHandlers = {
     dragend(event) {
       const marker = event.target;
       const newLat = marker.getLatLng().lat;
@@ -481,7 +481,7 @@ function DraggableMarker({ place, onPositionChange }) {
       setPosition([newLat, newLng]);
       onPositionChange(place.id, newLat, newLng);
     },
-  }), [place.id, onPositionChange]);
+  };
   
   return (
     <Marker
@@ -547,7 +547,6 @@ function GuideApp({ session, onSignOut }) {
     setCategoryOrder(profile?.category_order?.length ? profile.category_order : defaultCategories);
   }
 
-  // Функция для обновления координат (только для админа)
   async function updatePlaceCoordinates(placeId, lat, lng) {
     if (!isAdmin) return;
     
