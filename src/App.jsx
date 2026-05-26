@@ -237,7 +237,6 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete })
     }
   };
   
-  // Форматирование описания с сохранением переносов строк
   let formattedDescription = null;
   if (place.description && place.description.trim()) {
     const lines = place.description.split('\n');
@@ -808,8 +807,7 @@ function GuideApp({ session, onSignOut }) {
             <div className="flex-1 min-w-[200px]">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input
-                  type="text"
+                <input                  type="text"
                   placeholder="Поиск по названию или адресу..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -870,7 +868,7 @@ function GuideApp({ session, onSignOut }) {
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{places.filter(p => p.lat && p.lng).length} меток</span>
             </div>
             <div className="h-[520px]">
-              <MapContainer center={selectedPlace && selectedPlace.lat && selectedPlace.lng ? [selectedPlace.lat, selectedPlace.lng] : SANYA_CENTER} zoom={13} scrollWheelZoom}>
+              <MapContainer center={selectedPlace && selectedPlace.lat && selectedPlace.lng ? [selectedPlace.lat, selectedPlace.lng] : SANYA_CENTER} zoom={13} scrollWheelZoom>
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
