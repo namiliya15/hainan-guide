@@ -317,14 +317,17 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete, o
   } else if (place.photo_url) {
     photos = [place.photo_url];
   }
-
-  const lines = place.description?.split('\n');
-  const formattedDescription = lines?.map((line, i) => (
-  <span key={i}>
-    {line}
-    {i < lines.length - 1 && <br />}
-  </span>
-));
+  
+  let formattedDescription = null;
+  if (place.description && typeof place.description === 'string' && place.description.trim()) {
+    const lines = place.description.split('\n');
+    formattedDescription = lines.map((line, i) => (
+      <span key={i}>
+        {line}
+        {i < lines.length - 1 && <br />}
+      </span>
+    ));
+  }
   
   return (
     <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm group relative">
@@ -364,7 +367,7 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete, o
                 </button>
               </div>
             )}
-            {!place.lat && !place.lng && (
+            {(!place.lat || !place.lng) && (
               <p className="text-xs text-amber-500 mt-1">⚠️ Без координат — не отображается на карте</p>
             )}
           </div>
@@ -381,7 +384,7 @@ function PlaceCard({ place, favorite, onFavorite, onShowMap, onEdit, onDelete, o
             </button>
           </div>
         </div>
-        {place.description && (
+        {formattedDescription && (
           <div className="text-sm leading-6 text-slate-600">
             {formattedDescription}
           </div>
