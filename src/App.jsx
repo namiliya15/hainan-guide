@@ -469,7 +469,6 @@ function MapFocus({ place }) {
   return null;
 }
 
-// Компонент для перетаскиваемого маркера
 function DraggableMarker({ place, onPositionChange }) {
   const [position, setPosition] = useState([place.lat, place.lng]);
   
@@ -921,7 +920,11 @@ function GuideApp({ session, onSignOut }) {
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{places.filter(p => p.lat && p.lng).length} меток</span>
             </div>
             <div className="h-[520px]">
-              <MapContainer center={selectedPlace && selectedPlace.lat && selectedPlace.lng ? [selectedPlace.lat, selectedPlace.lng] : SANYA_CENTER} zoom={13} scrollWheelZoom}>
+              <MapContainer 
+                center={selectedPlace && selectedPlace.lat && selectedPlace.lng ? [selectedPlace.lat, selectedPlace.lng] : SANYA_CENTER} 
+                zoom={13} 
+                scrollWheelZoom
+              >
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
