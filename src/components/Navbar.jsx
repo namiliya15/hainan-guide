@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import { LogOut, Menu, Plus, X } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
@@ -91,9 +92,13 @@ export function Navbar({ session, isAdmin, theme, onToggleTheme, onSignOut, onOp
       </div>
 
       {/* ---------- Мобильное выезжающее меню ---------- */}
-      {menuOpen && (
-        <div className="fixed inset-0 z-50 sm:hidden">
-          <div className="absolute inset-0 bg-ink/50" onClick={() => setMenuOpen(false)} />
+      {/* Рендерим через портал в body: шапка использует backdrop-blur (это CSS filter),
+          а filter/backdrop-filter на предке — как и transform — создаёт новый "контейнер"
+          для position:fixed потомков. Без портала меню оказывалось зажато в размер шапки. */}
+      {menuOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[1000] sm:hidden">
+            <div className="absolute inset-0 bg-ink/50" onClick={() => setMenuOpen(false)} />
           <div className="absolute right-0 top-0 flex h-full w-[84vw] max-w-xs flex-col overflow-y-auto bg-white shadow-2xl dark:bg-night-surface">
             <div className="flex items-center justify-between border-b border-sand-200 px-4 py-4 dark:border-night-surface2">
               <span className="font-display text-lg font-semibold text-ink dark:text-white">Меню</span>
@@ -184,8 +189,9 @@ export function Navbar({ session, isAdmin, theme, onToggleTheme, onSignOut, onOp
               )}
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body
+        )}
     </nav>
   );
 }
