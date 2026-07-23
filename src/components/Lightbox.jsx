@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
-export function Lightbox({ images, index, onClose, onChangeIndex }) {
+export function Lightbox({ images, index, onClose, onChangeIndex, caption }) {
   useEffect(() => {
     function onKey(e) {
       if (e.key === 'Escape') onClose();
@@ -14,9 +15,9 @@ export function Lightbox({ images, index, onClose, onChangeIndex }) {
 
   if (index === null || index === undefined) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[1300] grid place-items-center bg-black/90 p-4"
+      className="fixed inset-0 z-[1300] flex flex-col items-center justify-center gap-3 bg-black/90 p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <button
@@ -51,16 +52,19 @@ export function Lightbox({ images, index, onClose, onChangeIndex }) {
 
       <img
         src={images[index]}
-        alt={`Фото ${index + 1} из ${images.length}`}
-        className="max-h-[90vh] max-w-[92vw] object-contain"
+        alt={caption ? `${caption} — фото ${index + 1} из ${images.length}` : `Фото ${index + 1} из ${images.length}`}
+        className="max-h-[75vh] max-w-[92vw] object-contain"
         onClick={(e) => e.stopPropagation()}
       />
 
+      {caption && <p className="max-w-[90vw] text-center text-sm text-gray-300">{caption}</p>}
+
       {images.length > 1 && (
-        <div className="absolute bottom-5 rounded-full bg-black/40 px-3 py-1 text-xs font-medium text-white">
+        <div className="rounded-full bg-black/40 px-3 py-1 text-xs font-medium text-white">
           {index + 1} / {images.length}
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
