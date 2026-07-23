@@ -52,7 +52,7 @@ export function PlaceCard({ place, favorite, isAdmin, onFavorite, onShowMap, onE
   return (
     <article className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-sand-300 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-night-surface2 dark:bg-night-surface">
       <div className="relative">
-        <ImageCarousel images={photos} onDelete={(idx) => onDeleteImage?.(place.id, idx)} isAdmin={isAdmin} />
+        <ImageCarousel images={photos} onDelete={(idx) => onDeleteImage?.(place.id, idx)} isAdmin={isAdmin} placeName={place.name} />
         <button
           type="button"
           onClick={() => onFavorite(place.id)}
