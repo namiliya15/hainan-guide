@@ -45,7 +45,7 @@ export function PlaceModal({ place, favorite, isAdmin, onClose, onFavorite, onEd
       className="fixed inset-0 z-[1100] grid place-items-center bg-ink/60 p-4 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="relative max-h-[90vh] w-full max-w-lg overflow-auto rounded-2xl bg-white shadow-2xl dark:bg-night-surface">
+      <div className="relative max-h-[92vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white shadow-2xl dark:bg-night-surface">
         <button
           type="button"
           onClick={onClose}
@@ -55,7 +55,7 @@ export function PlaceModal({ place, favorite, isAdmin, onClose, onFavorite, onEd
           <X size={18} />
         </button>
 
-        <ImageCarousel images={photos} onDelete={(idx) => onDeleteImage?.(place.id, idx)} isAdmin={isAdmin} />
+        <ImageCarousel images={photos} onDelete={(idx) => onDeleteImage?.(place.id, idx)} isAdmin={isAdmin} variant="modal" />
 
         <div className="p-5">
           <div className="flex items-start justify-between gap-3">
