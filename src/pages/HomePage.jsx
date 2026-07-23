@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Compass, Heart, Search, X } from 'lucide-react';
 import { useIsAdmin } from '../hooks/useIsAdmin';
 import { usePlaces, emptyDraft } from '../features/places/usePlaces';
@@ -17,7 +18,8 @@ export function HomePage({ session, onRequireAuth, addPlaceSignal }) {
   const { favorites, toggleFavorite } = useFavorites(session, onRequireAuth);
   const { categoryOrder, saveCategoryOrder } = useCategoryOrder(session);
 
-  const [activeCategory, setActiveCategory] = useState('Пляжи');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeCategory, setActiveCategory] = useState(searchParams.get('category') || 'Пляжи');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [modalPlace, setModalPlace] = useState(null);
@@ -25,6 +27,19 @@ export function HomePage({ session, onRequireAuth, addPlaceSignal }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editingPlaceId, setEditingPlaceId] = useState(null);
   const [draft, setDraft] = useState(emptyDraft());
+
+  // Ссылки на категории из мобильного меню ведут на "/?category=Пляжи" —
+  // подхватываем это здесь и сразу чистим URL, чтобы дальнейшие клики по
+  // "пилюлям" на странице работали как обычно, без лишнего query-параметра.
+  useEffect(() => {
+    const fromUrl = searchParams.get('category');
+    if (fromUrl) {
+      setActiveCategory(fromUrl);
+      searchParams.delete('category');
+      setSearchParams(searchParams, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Поиск — уже сейчас ищет по ВСЕМ местам сразу, а не только внутри
   // выбранной категории (см. комментарий в usePlaces.searchAll).
