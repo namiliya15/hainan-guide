@@ -8,6 +8,8 @@ import { Navbar } from './components/Navbar';
 import { AuthModal } from './features/auth/AuthModal';
 import { HomePage } from './pages/HomePage';
 import { ArticlesPage } from './pages/ArticlesPage';
+import { ArticlePage } from './pages/ArticlePage';
+import { ArticleEditorPage } from './pages/ArticleEditorPage';
 
 export default function App() {
   const { session, setSession, loading, signOut } = useSession();
@@ -58,7 +60,10 @@ export default function App() {
 
       <Routes>
         <Route path="/" element={<HomePage session={session} onRequireAuth={requireAuthForFavorite} addPlaceSignal={addPlaceSignal} />} />
-        <Route path="/articles" element={<ArticlesPage />} />
+        <Route path="/articles" element={<ArticlesPage session={session} />} />
+        <Route path="/articles/new" element={<ArticleEditorPage session={session} />} />
+        <Route path="/articles/:slug/edit" element={<ArticleEditorPage session={session} />} />
+        <Route path="/articles/:slug" element={<ArticlePage session={session} />} />
       </Routes>
 
       <AuthModal
