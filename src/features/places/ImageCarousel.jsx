@@ -9,7 +9,7 @@ import { Lightbox } from '../../components/Lightbox';
 
 // variant="card"  — карточка в сетке на главной, всегда фиксированная высота (h-40)
 // variant="modal" — карточка по двойному тапу на карте, высота подстраивается под фото
-export function ImageCarousel({ images, onDelete, isAdmin, variant = 'card' }) {
+export function ImageCarousel({ images, onDelete, isAdmin, variant = 'card', placeName }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lightboxIndex, setLightboxIndex] = useState(null);
 
@@ -80,7 +80,7 @@ export function ImageCarousel({ images, onDelete, isAdmin, variant = 'card' }) {
         </button>
       )}
 
-      <Lightbox images={images} index={lightboxIndex} onClose={() => setLightboxIndex(null)} onChangeIndex={setLightboxIndex} />
+      <Lightbox images={images} index={lightboxIndex} onClose={() => setLightboxIndex(null)} onChangeIndex={setLightboxIndex} caption={placeName} />
     </div>
   );
 }
