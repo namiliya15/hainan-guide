@@ -55,7 +55,7 @@ export function PlaceModal({ place, favorite, isAdmin, onClose, onFavorite, onEd
           <X size={18} />
         </button>
 
-        <ImageCarousel images={photos} onDelete={(idx) => onDeleteImage?.(place.id, idx)} isAdmin={isAdmin} variant="modal" />
+        <ImageCarousel images={photos} onDelete={(idx) => onDeleteImage?.(place.id, idx)} isAdmin={isAdmin} variant="modal" placeName={place.name} />
 
         <div className="p-5">
           <div className="flex items-start justify-between gap-3">
