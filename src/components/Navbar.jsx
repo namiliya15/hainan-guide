@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, Menu, Plus, X } from 'lucide-react';
+import { Inbox, LogOut, Menu, Plus, X } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { defaultCategories } from '../data/categories';
+import { useFeedback } from '../features/feedback/useFeedback';
 
 export function Navbar({ session, isAdmin, theme, onToggleTheme, onSignOut, onOpenAuth, onAddPlace }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
+  const { pendingCount } = useFeedback(session, isAdmin);
 
   // Закрываем бургер-меню при переходе на другую страницу/категорию
   useEffect(() => setMenuOpen(false), [location.pathname, location.search]);
@@ -33,6 +35,21 @@ export function Navbar({ session, isAdmin, theme, onToggleTheme, onSignOut, onOp
           >
             Статьи о путешествиях
           </Link>
+
+          {isAdmin && (
+            <Link
+              to="/admin/inbox"
+              className="relative inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium text-slate-600 hover:bg-sand-200 hover:text-ink dark:text-mist dark:hover:bg-night-surface2 dark:hover:text-white"
+            >
+              <Inbox size={16} />
+              Входящие
+              {pendingCount > 0 && (
+                <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-coral text-[10px] font-bold text-white">
+                  {pendingCount > 9 ? '9+' : pendingCount}
+                </span>
+              )}
+            </Link>
+          )}
 
           {isAdmin && (
             <button
@@ -119,6 +136,30 @@ export function Navbar({ session, isAdmin, theme, onToggleTheme, onSignOut, onOp
               >
                 Статьи о путешествиях
               </Link>
+
+              {isAdmin && (
+                <Link
+                  to="/admin/inbox"
+                  className="flex items-center justify-between rounded-lg px-3 py-2.5 text-[15px] font-medium text-ink hover:bg-sand-200 dark:text-white dark:hover:bg-night-surface2"
+                >
+                  <span className="flex items-center gap-2">
+                    <Inbox size={16} />
+                    Входящие
+                  </span>
+                  {pendingCount > 0 && (
+                    <span className="grid h-5 min-w-5 place-items-center rounded-full bg-coral px-1 text-[11px] font-bold text-white">{pendingCount}</span>
+                  )}
+                </Link>
+              )}
+
+              {session && !isAdmin && (
+                <Link
+                  to="/my-submissions"
+                  className="rounded-lg px-3 py-2.5 text-[15px] font-medium text-ink hover:bg-sand-200 dark:text-white dark:hover:bg-night-surface2"
+                >
+                  Мои предложения
+                </Link>
+              )}
 
               {isAdmin && (
                 <button

@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Compass, Heart, Search, X } from 'lucide-react';
+import { Compass, Heart, MapPinPlus, Search, X } from 'lucide-react';
 import { useIsAdmin } from '../hooks/useIsAdmin';
 import { usePlaces, emptyDraft } from '../features/places/usePlaces';
 import { useFavorites } from '../features/favorites/useFavorites';
 import { useCategoryOrder } from '../features/categories/useCategoryOrder';
+import { useFeedback } from '../features/feedback/useFeedback';
 import { CategoryMenu } from '../features/categories/CategoryMenu';
 import { PlaceCard } from '../features/places/PlaceCard';
 import { PlaceModal } from '../features/places/PlaceModal';
 import { AddPlaceForm } from '../features/places/AddPlaceForm';
+import { SuggestPlaceForm } from '../features/feedback/SuggestPlaceForm';
+import { ReportIssueForm } from '../features/feedback/ReportIssueForm';
 import { MapSection } from '../features/map/MapSection';
 
 export function HomePage({ session, onRequireAuth, addPlaceSignal }) {
@@ -17,6 +20,7 @@ export function HomePage({ session, onRequireAuth, addPlaceSignal }) {
     usePlaces(session);
   const { favorites, toggleFavorite } = useFavorites(session, onRequireAuth);
   const { categoryOrder, saveCategoryOrder } = useCategoryOrder(session);
+  const { submitSuggestion, submitReport, notice: feedbackNotice } = useFeedback(session, isAdmin);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeCategory, setActiveCategory] = useState(searchParams.get('category') || 'Пляжи');
@@ -27,6 +31,8 @@ export function HomePage({ session, onRequireAuth, addPlaceSignal }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editingPlaceId, setEditingPlaceId] = useState(null);
   const [draft, setDraft] = useState(emptyDraft());
+  const [reportPlace, setReportPlace] = useState(null);
+  const [showSuggestForm, setShowSuggestForm] = useState(false);
 
   // Ссылки на категории из мобильного меню ведут на "/?category=Пляжи" —
   // подхватываем это здесь и сразу чистим URL, чтобы дальнейшие клики по
@@ -191,6 +197,11 @@ export function HomePage({ session, onRequireAuth, addPlaceSignal }) {
             </button>
           </div>
         )}
+        {feedbackNotice && (
+          <div className="mt-4 rounded-lg border border-coral/30 bg-coral/10 px-4 py-3 text-sm font-semibold text-coral-600 dark:text-coral">
+            {feedbackNotice}
+          </div>
+        )}
 
         {/* ---------- КАТЕГОРИИ ---------- */}
         <CategoryMenu
@@ -223,12 +234,13 @@ export function HomePage({ session, onRequireAuth, addPlaceSignal }) {
               onEdit={openEditForm}
               onDelete={deletePlace}
               onDeleteImage={deleteImageFromPlace}
+              onReportIssue={setReportPlace}
             />
           ))}
         </div>
 
         {/* ---------- КАРТА ---------- */}
-        <div className="pb-16 pt-4">
+        <div className="pb-8 pt-4">
           <MapSection
             id="global-map"
             places={places}
@@ -238,6 +250,17 @@ export function HomePage({ session, onRequireAuth, addPlaceSignal }) {
             onPositionChange={updatePlaceCoordinates}
             onOpenPlace={setModalPlace}
           />
+        </div>
+
+        <div className="flex justify-center pb-16">
+          <button
+            type="button"
+            onClick={() => setShowSuggestForm(true)}
+            className="inline-flex items-center gap-2 rounded-full border border-sand-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 hover:bg-sand-200 dark:border-night-surface2 dark:bg-night-surface dark:text-mist dark:hover:bg-night-surface2"
+          >
+            <MapPinPlus size={16} />
+            Знаете интересное место? Предложите его
+          </button>
         </div>
       </div>
 
@@ -257,8 +280,24 @@ export function HomePage({ session, onRequireAuth, addPlaceSignal }) {
             deletePlace(placeId);
           }}
           onDeleteImage={deleteImageFromPlace}
+          onReportIssue={setReportPlace}
         />
       )}
+
+      <SuggestPlaceForm
+        open={showSuggestForm}
+        onClose={() => setShowSuggestForm(false)}
+        onSubmit={submitSuggestion}
+        needsEmail={!session}
+      />
+
+      <ReportIssueForm
+        open={Boolean(reportPlace)}
+        place={reportPlace}
+        onClose={() => setReportPlace(null)}
+        onSubmit={submitReport}
+        needsEmail={!session}
+      />
 
       {showForm && (
         <AddPlaceForm

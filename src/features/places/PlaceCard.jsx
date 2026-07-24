@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, Compass, Copy, Edit, Heart, HeartOff, MapPin, Navigation, Trash2 } from 'lucide-react';
+import { Check, Compass, Copy, Edit, Flag, Heart, HeartOff, MapPin, Navigation, Trash2 } from 'lucide-react';
 import { ImageCarousel } from './ImageCarousel';
 
-export function PlaceCard({ place, favorite, isAdmin, onFavorite, onShowMap, onEdit, onDelete, onDeleteImage }) {
+export function PlaceCard({ place, favorite, isAdmin, onFavorite, onShowMap, onEdit, onDelete, onDeleteImage, onReportIssue }) {
   const [copiedName, setCopiedName] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -173,26 +173,37 @@ export function PlaceCard({ place, favorite, isAdmin, onFavorite, onShowMap, onE
           )}
         </div>
 
-        {isAdmin && (
-          <div className="mt-2 flex justify-end gap-3 border-t border-sand-200 pt-2 dark:border-night-surface2">
-            <button
-              type="button"
-              onClick={() => onEdit(place)}
-              className="inline-flex items-center gap-1 text-xs text-slate-500 transition hover:text-lagoon dark:text-mist dark:hover:text-aqua"
-            >
-              <Edit size={13} />
-              Редактировать
-            </button>
-            <button
-              type="button"
-              onClick={() => onDelete(place.id)}
-              className="inline-flex items-center gap-1 text-xs text-slate-500 transition hover:text-red-600 dark:text-mist"
-            >
-              <Trash2 size={13} />
-              Удалить
-            </button>
-          </div>
-        )}
+        <div className="mt-2 flex items-center justify-between gap-3 border-t border-sand-200 pt-2 dark:border-night-surface2">
+          <button
+            type="button"
+            onClick={() => onReportIssue?.(place)}
+            className="inline-flex items-center gap-1 text-xs text-slate-400 transition hover:text-lagoon dark:text-mist dark:hover:text-aqua"
+          >
+            <Flag size={12} />
+            Сообщить об изменениях
+          </button>
+
+          {isAdmin && (
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => onEdit(place)}
+                className="inline-flex items-center gap-1 text-xs text-slate-500 transition hover:text-lagoon dark:text-mist dark:hover:text-aqua"
+              >
+                <Edit size={13} />
+                Редактировать
+              </button>
+              <button
+                type="button"
+                onClick={() => onDelete(place.id)}
+                className="inline-flex items-center gap-1 text-xs text-slate-500 transition hover:text-red-600 dark:text-mist"
+              >
+                <Trash2 size={13} />
+                Удалить
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </article>
   );

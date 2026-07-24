@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Check, Compass, Copy, Edit, Heart, HeartOff, Navigation, Trash2, X } from 'lucide-react';
+import { Check, Compass, Copy, Edit, Flag, Heart, HeartOff, Navigation, Trash2, X } from 'lucide-react';
 import { ImageCarousel } from './ImageCarousel';
 
-export function PlaceModal({ place, favorite, isAdmin, onClose, onFavorite, onEdit, onDelete, onDeleteImage }) {
+export function PlaceModal({ place, favorite, isAdmin, onClose, onFavorite, onEdit, onDelete, onDeleteImage, onReportIssue }) {
   const [copiedName, setCopiedName] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
 
@@ -122,18 +122,24 @@ export function PlaceModal({ place, favorite, isAdmin, onClose, onFavorite, onEd
             )}
           </div>
 
-          {isAdmin && (
-            <div className="mt-4 flex justify-end gap-3 border-t border-sand-200 pt-3 dark:border-night-surface2">
-              <button type="button" onClick={() => onEdit(place)} className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-lagoon dark:text-mist dark:hover:text-aqua">
-                <Edit size={13} />
-                Редактировать
-              </button>
-              <button type="button" onClick={() => onDelete(place.id)} className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-red-600 dark:text-mist">
-                <Trash2 size={13} />
-                Удалить
-              </button>
-            </div>
-          )}
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-sand-200 pt-3 dark:border-night-surface2">
+            <button type="button" onClick={() => onReportIssue?.(place)} className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-lagoon dark:text-mist dark:hover:text-aqua">
+              <Flag size={12} />
+              Сообщить об изменениях
+            </button>
+            {isAdmin && (
+              <div className="flex gap-3">
+                <button type="button" onClick={() => onEdit(place)} className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-lagoon dark:text-mist dark:hover:text-aqua">
+                  <Edit size={13} />
+                  Редактировать
+                </button>
+                <button type="button" onClick={() => onDelete(place.id)} className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-red-600 dark:text-mist">
+                  <Trash2 size={13} />
+                  Удалить
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
