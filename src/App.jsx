@@ -10,6 +10,8 @@ import { HomePage } from './pages/HomePage';
 import { ArticlesPage } from './pages/ArticlesPage';
 import { ArticlePage } from './pages/ArticlePage';
 import { ArticleEditorPage } from './pages/ArticleEditorPage';
+import { AdminInboxPage } from './pages/AdminInboxPage';
+import { MySubmissionsPage } from './pages/MySubmissionsPage';
 
 export default function App() {
   const { session, setSession, loading, signOut } = useSession();
@@ -64,6 +66,8 @@ export default function App() {
         <Route path="/articles/new" element={<ArticleEditorPage session={session} />} />
         <Route path="/articles/:slug/edit" element={<ArticleEditorPage session={session} />} />
         <Route path="/articles/:slug" element={<ArticlePage session={session} />} />
+        <Route path="/admin/inbox" element={<AdminInboxPage session={session} />} />
+        <Route path="/my-submissions" element={<MySubmissionsPage session={session} />} />
       </Routes>
 
       <AuthModal
