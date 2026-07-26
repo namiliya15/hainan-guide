@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Route, Routes, useLocation } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import { useSession } from './hooks/useSession';
 import { useIsAdmin } from './hooks/useIsAdmin';
 import { useTheme } from './hooks/useTheme';
+import { useFeedback } from './features/feedback/useFeedback';
 import { Navbar } from './components/Navbar';
 import { AuthModal } from './features/auth/AuthModal';
+import { ReplyToast } from './components/ReplyToast';
 import { HomePage } from './pages/HomePage';
 import { ArticlesPage } from './pages/ArticlesPage';
 import { ArticlePage } from './pages/ArticlePage';
@@ -17,11 +19,12 @@ export default function App() {
   const { session, setSession, loading, signOut } = useSession();
   const { theme, toggleTheme } = useTheme();
   const isAdmin = useIsAdmin(session);
-  const location = useLocation();
+  const { pendingCount, unreadReplyCount, markRepliesSeen } = useFeedback(session, isAdmin);
 
   const [authOpen, setAuthOpen] = useState(false);
   const [authReason, setAuthReason] = useState('');
   const [addPlaceSignal, setAddPlaceSignal] = useState(0);
+  const [toastDismissed, setToastDismissed] = useState(false);
 
   function openAuth(reasonText) {
     setAuthReason(
@@ -52,12 +55,14 @@ export default function App() {
     <div className="min-h-screen bg-sand text-ink dark:bg-night dark:text-white">
       <Navbar
         session={session}
-        isAdmin={isAdmin && location.pathname === '/'}
+        isAdmin={isAdmin}
         theme={theme}
         onToggleTheme={toggleTheme}
         onSignOut={signOut}
         onOpenAuth={openAuth}
         onAddPlace={() => setAddPlaceSignal((s) => s + 1)}
+        pendingCount={pendingCount}
+        unreadReplyCount={unreadReplyCount}
       />
 
       <Routes>
@@ -67,7 +72,7 @@ export default function App() {
         <Route path="/articles/:slug/edit" element={<ArticleEditorPage session={session} />} />
         <Route path="/articles/:slug" element={<ArticlePage session={session} />} />
         <Route path="/admin/inbox" element={<AdminInboxPage session={session} />} />
-        <Route path="/my-submissions" element={<MySubmissionsPage session={session} />} />
+        <Route path="/my-submissions" element={<MySubmissionsPage session={session} onSeen={markRepliesSeen} />} />
       </Routes>
 
       <AuthModal
@@ -75,6 +80,12 @@ export default function App() {
         onClose={() => setAuthOpen(false)}
         onSession={setSession}
         reason={authReason}
+      />
+
+      <ReplyToast
+        show={unreadReplyCount > 0 && !toastDismissed}
+        onClose={() => setToastDismissed(true)}
+        onView={() => setToastDismissed(true)}
       />
     </div>
   );

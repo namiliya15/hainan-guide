@@ -13,8 +13,8 @@ export function useFeedback(session, isAdmin) {
 
   useEffect(() => {
     if (!hasSupabaseConfig) return;
+    if (session) loadMySubmissions();
     if (isAdmin) loadAdminInbox();
-    else if (session) loadMySubmissions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id, isAdmin]);
 
@@ -68,6 +68,7 @@ export function useFeedback(session, isAdmin) {
       return false;
     }
     showNotice('Спасибо! Место отправлено на проверку.');
+    if (session && !session.localOnly) await loadMySubmissions();
     return true;
   }
 
@@ -89,6 +90,7 @@ export function useFeedback(session, isAdmin) {
       return false;
     }
     showNotice('Спасибо, передали администратору!');
+    if (session && !session.localOnly) await loadMySubmissions();
     return true;
   }
 
@@ -112,28 +114,49 @@ export function useFeedback(session, isAdmin) {
   }
 
   async function rejectSuggestion(id, reply) {
-    await supabase.from('place_suggestions').update({ status: 'rejected', admin_reply: reply || null, updated_at: new Date() }).eq('id', id);
+    await supabase
+      .from('place_suggestions')
+      .update({ status: 'rejected', admin_reply: reply || null, reply_seen: reply ? false : true, updated_at: new Date() })
+      .eq('id', id);
     showNotice('Предложение отклонено.');
     await loadAdminInbox();
   }
 
   async function replySuggestion(id, reply) {
-    await supabase.from('place_suggestions').update({ admin_reply: reply, updated_at: new Date() }).eq('id', id);
+    await supabase.from('place_suggestions').update({ admin_reply: reply, reply_seen: false, updated_at: new Date() }).eq('id', id);
     showNotice('Ответ сохранён.');
     await loadAdminInbox();
   }
 
   async function resolveReport(id, reply) {
-    await supabase.from('place_reports').update({ status: 'resolved', admin_reply: reply || null, updated_at: new Date() }).eq('id', id);
+    await supabase
+      .from('place_reports')
+      .update({ status: 'resolved', admin_reply: reply || null, reply_seen: reply ? false : true, updated_at: new Date() })
+      .eq('id', id);
     showNotice('Отмечено как решено.');
     await loadAdminInbox();
   }
 
   async function replyReport(id, reply) {
-    await supabase.from('place_reports').update({ admin_reply: reply, updated_at: new Date() }).eq('id', id);
+    await supabase.from('place_reports').update({ admin_reply: reply, reply_seen: false, updated_at: new Date() }).eq('id', id);
     showNotice('Ответ сохранён.');
     await loadAdminInbox();
   }
+
+  // Отметить у себя (автора заявки) все ответы прочитанными — вызывается,
+  // когда пользователь открывает страницу "Мои предложения" или сам
+  // всплывающий тост с уведомлением.
+  async function markRepliesSeen() {
+    if (!session) return;
+    await Promise.all([
+      supabase.from('place_suggestions').update({ reply_seen: true }).eq('submitted_by', session.user.id).eq('reply_seen', false),
+      supabase.from('place_reports').update({ reply_seen: true }).eq('submitted_by', session.user.id).eq('reply_seen', false),
+    ]);
+    await loadMySubmissions();
+  }
+
+  const unreadReplyCount =
+    mySuggestions.filter((s) => s.admin_reply && !s.reply_seen).length + myReports.filter((r) => r.admin_reply && !r.reply_seen).length;
 
   return {
     mySuggestions,
@@ -141,6 +164,7 @@ export function useFeedback(session, isAdmin) {
     adminSuggestions,
     adminReports,
     pendingCount,
+    unreadReplyCount,
     notice,
     submitSuggestion,
     submitReport,
@@ -149,5 +173,6 @@ export function useFeedback(session, isAdmin) {
     replySuggestion,
     resolveReport,
     replyReport,
+    markRepliesSeen,
   };
 }

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useIsAdmin } from '../hooks/useIsAdmin';
 import { useFeedback } from '../features/feedback/useFeedback';
 
@@ -8,9 +9,17 @@ const STATUS_LABEL = {
   resolved: 'Решено',
 };
 
-export function MySubmissionsPage({ session }) {
+export function MySubmissionsPage({ session, onSeen }) {
   const isAdmin = useIsAdmin(session);
   const { mySuggestions, myReports } = useFeedback(session, isAdmin);
+
+  // Отмечаем ответы прочитанными при заходе на страницу — это обновляет
+  // счётчик-точку у колокольчика в шапке (там отдельный экземпляр хука,
+  // поэтому используем именно ту функцию, что пришла из App, а не свою).
+  useEffect(() => {
+    if (session) onSeen?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id]);
 
   if (!session) {
     return <div className="mx-auto max-w-md px-4 py-24 text-center text-slate-500 dark:text-mist">Войдите в аккаунт, чтобы увидеть свои предложения.</div>;

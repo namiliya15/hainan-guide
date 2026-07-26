@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { Inbox, LogOut, Menu, Plus, X } from 'lucide-react';
+import { Bell, Inbox, LogOut, Menu, Plus, X } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { defaultCategories } from '../data/categories';
-import { useFeedback } from '../features/feedback/useFeedback';
 
-export function Navbar({ session, isAdmin, theme, onToggleTheme, onSignOut, onOpenAuth, onAddPlace }) {
+export function Navbar({ session, isAdmin, theme, onToggleTheme, onSignOut, onOpenAuth, onAddPlace, pendingCount, unreadReplyCount }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
-  const { pendingCount } = useFeedback(session, isAdmin);
+  const showAddPlace = isAdmin && location.pathname === '/';
 
   // Закрываем бургер-меню при переходе на другую страницу/категорию
   useEffect(() => setMenuOpen(false), [location.pathname, location.search]);
@@ -51,7 +50,7 @@ export function Navbar({ session, isAdmin, theme, onToggleTheme, onSignOut, onOp
             </Link>
           )}
 
-          {isAdmin && (
+          {isAdmin && showAddPlace && (
             <button
               type="button"
               onClick={onAddPlace}
@@ -60,6 +59,18 @@ export function Navbar({ session, isAdmin, theme, onToggleTheme, onSignOut, onOp
               <Plus size={15} />
               Добавить место
             </button>
+          )}
+
+          {session && !isAdmin && (
+            <Link
+              to="/my-submissions"
+              className="relative grid h-10 w-10 place-items-center rounded-full border border-sand-300 text-slate-600 hover:bg-sand-200 dark:border-night-surface2 dark:text-mist dark:hover:bg-night-surface2"
+              aria-label="Мои предложения"
+              title="Мои предложения"
+            >
+              <Bell size={17} />
+              {unreadReplyCount > 0 && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-coral" />}
+            </Link>
           )}
 
           {session ? (
@@ -155,13 +166,17 @@ export function Navbar({ session, isAdmin, theme, onToggleTheme, onSignOut, onOp
               {session && !isAdmin && (
                 <Link
                   to="/my-submissions"
-                  className="rounded-lg px-3 py-2.5 text-[15px] font-medium text-ink hover:bg-sand-200 dark:text-white dark:hover:bg-night-surface2"
+                  className="flex items-center justify-between rounded-lg px-3 py-2.5 text-[15px] font-medium text-ink hover:bg-sand-200 dark:text-white dark:hover:bg-night-surface2"
                 >
-                  Мои предложения
+                  <span className="flex items-center gap-2">
+                    <Bell size={16} />
+                    Мои предложения
+                  </span>
+                  {unreadReplyCount > 0 && <span className="h-2.5 w-2.5 rounded-full bg-coral" />}
                 </Link>
               )}
 
-              {isAdmin && (
+              {isAdmin && showAddPlace && (
                 <button
                   type="button"
                   onClick={() => {
