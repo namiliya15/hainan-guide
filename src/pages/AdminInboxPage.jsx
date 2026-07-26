@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Check, Inbox, MessageSquare, X } from 'lucide-react';
 import { useIsAdmin } from '../hooks/useIsAdmin';
 import { useFeedback } from '../features/feedback/useFeedback';
@@ -26,8 +26,13 @@ function ReplyBox({ initial, onSave, placeholder }) {
 
 export function AdminInboxPage({ session }) {
   const isAdmin = useIsAdmin(session);
-  const { adminSuggestions, adminReports, notice, approveSuggestion, rejectSuggestion, replySuggestion, resolveReport, replyReport } =
+  const { adminSuggestions, adminReports, notice, approveSuggestion, rejectSuggestion, replySuggestion, resolveReport, replyReport, markUserRepliesSeen } =
     useFeedback(session, isAdmin);
+
+  useEffect(() => {
+    if (isAdmin) markUserRepliesSeen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin]);
 
   if (!isAdmin) {
     return <div className="mx-auto max-w-md px-4 py-24 text-center text-slate-500 dark:text-mist">Эта страница доступна только администратору.</div>;
@@ -71,6 +76,11 @@ export function AdminInboxPage({ session }) {
             </div>
             {s.description && <p className="mt-2 text-sm text-slate-600 dark:text-mist">{s.description}</p>}
             {s.note && <p className="mt-1 text-sm italic text-slate-400">Заметка: {s.note}</p>}
+            {s.user_reply && (
+              <p className="mt-2 rounded-lg bg-sand-200 px-3 py-2 text-sm text-slate-600 dark:bg-night-surface2 dark:text-mist">
+                Ответ автора: {s.user_reply}
+              </p>
+            )}
 
             {s.status === 'pending' && (
               <div className="mt-3 flex flex-wrap gap-2 border-t border-sand-200 pt-3 dark:border-night-surface2">
@@ -119,6 +129,11 @@ export function AdminInboxPage({ session }) {
             </div>
             <p className="mt-2 text-sm text-slate-600 dark:text-mist">{r.message}</p>
             {r.submitted_email && <p className="mt-1 text-xs text-slate-400">от {r.submitted_email}</p>}
+            {r.user_reply && (
+              <p className="mt-2 rounded-lg bg-sand-200 px-3 py-2 text-sm text-slate-600 dark:bg-night-surface2 dark:text-mist">
+                Ответ автора: {r.user_reply}
+              </p>
+            )}
             {r.status === 'pending' && (
               <button
                 type="button"

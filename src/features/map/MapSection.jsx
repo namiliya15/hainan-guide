@@ -5,12 +5,22 @@ import 'leaflet/dist/leaflet.css';
 import { LocateFixed } from 'lucide-react';
 import { useGeolocation } from './useGeolocation';
 
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+const SANYA_CENTER = [18.2218, 109.515];
+
+// Метки-"капли" своего цвета вместо стандартной синей иконки Leaflet:
+// обычная — цвет бренда (lagoon), активная (выбрана кликом по карточке
+// "На карте" ИЛИ тапом по самой метке) — коралловая.
+function pinIcon(color) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:26px;height:26px;border-radius:50% 50% 50% 0;background:${color};transform:rotate(-45deg);box-shadow:0 2px 6px rgba(11,36,34,0.35);border:2px solid white"></div>`,
+    iconSize: [26, 26],
+    iconAnchor: [13, 26],
+    popupAnchor: [0, -28],
+  });
+}
+const NORMAL_ICON = pinIcon('#0E6B64');
+const ACTIVE_ICON = pinIcon('#FF7A59');
 
 const userIcon = L.divIcon({
   className: '',
@@ -18,8 +28,6 @@ const userIcon = L.divIcon({
   iconSize: [16, 16],
   iconAnchor: [8, 8],
 });
-
-const SANYA_CENTER = [18.2218, 109.515];
 
 function MapClickHandler({ onPick }) {
   useMapEvents({
@@ -42,7 +50,7 @@ function MapFocus({ place, userPosition }) {
   return null;
 }
 
-function DraggableMarker({ place, onPositionChange, onSingleTap, onDoubleTap }) {
+function DraggableMarker({ place, isActive, onPositionChange, onSelect, onDoubleTap }) {
   const [position, setPosition] = useState([place.lat, place.lng]);
   const eventHandlers = {
     dragend(event) {
@@ -52,23 +60,27 @@ function DraggableMarker({ place, onPositionChange, onSingleTap, onDoubleTap }) 
       setPosition([newLat, newLng]);
       onPositionChange(place.id, newLat, newLng);
     },
-    click: () => onSingleTap?.(place),
+    click: () => onSelect?.(place.id),
     dblclick: () => onDoubleTap?.(place),
+    popupclose: () => onSelect?.(null, place.id),
   };
   return (
-    <Marker position={position} draggable eventHandlers={eventHandlers}>
+    <Marker position={position} draggable icon={isActive ? ACTIVE_ICON : NORMAL_ICON} eventHandlers={eventHandlers}>
       <Popup>{place.name}</Popup>
     </Marker>
   );
 }
 
-function PlaceMarker({ place, onSingleTap, onDoubleTap }) {
+function PlaceMarker({ place, isActive, onSelect, onDoubleTap }) {
   const eventHandlers = {
-    click: () => onSingleTap?.(place),
+    click: () => onSelect?.(place.id),
     dblclick: () => onDoubleTap?.(place),
+    // Когда попап закрывается (тап мимо, крестик, повторный тап по метке) —
+    // метка возвращается в обычный цвет, если только её не выбрали заново.
+    popupclose: () => onSelect?.(null, place.id),
   };
   return (
-    <Marker position={[place.lat, place.lng]} eventHandlers={eventHandlers}>
+    <Marker position={[place.lat, place.lng]} icon={isActive ? ACTIVE_ICON : NORMAL_ICON} eventHandlers={eventHandlers}>
       {/* Одиночный тап — всплывает только название (см. требование).
           Двойной тап — открывает полную карточку (PlaceModal) без скролла. */}
       <Popup>{place.name}</Popup>
@@ -79,6 +91,23 @@ function PlaceMarker({ place, onSingleTap, onDoubleTap }) {
 export function MapSection({ id, places, selectedPlace, isAdmin, onMapClick, onPositionChange, onOpenPlace }) {
   const pinned = places.filter((p) => p.lat && p.lng);
   const { position: userPosition, error: geoError, locating, locate } = useGeolocation();
+  const [activeId, setActiveId] = useState(null);
+
+  // Кнопка "На карте" на карточке места — та же метка на карте становится
+  // активной (красной), а не рисуется вторым маркером поверх существующего.
+  useEffect(() => {
+    if (selectedPlace?.id) setActiveId(selectedPlace.id);
+  }, [selectedPlace]);
+
+  function handleSelect(id, closedId) {
+    // closedId используется в обработчике popupclose: сбрасываем цвет, только
+    // если закрылся попап именно у текущей активной метки (а не у другой).
+    if (id === null) {
+      setActiveId((current) => (current === closedId ? null : current));
+    } else {
+      setActiveId(id);
+    }
+  }
 
   return (
     <section id={id} className="overflow-hidden rounded-2xl border border-sand-300 bg-white shadow-sm dark:border-night-surface2 dark:bg-night-surface">
@@ -124,18 +153,14 @@ export function MapSection({ id, places, selectedPlace, isAdmin, onMapClick, onP
               <DraggableMarker
                 key={place.id}
                 place={place}
+                isActive={activeId === place.id}
                 onPositionChange={onPositionChange}
-                onSingleTap={() => {}}
+                onSelect={handleSelect}
                 onDoubleTap={onOpenPlace}
               />
             ) : (
-              <PlaceMarker key={place.id} place={place} onSingleTap={() => {}} onDoubleTap={onOpenPlace} />
+              <PlaceMarker key={place.id} place={place} isActive={activeId === place.id} onSelect={handleSelect} onDoubleTap={onOpenPlace} />
             )
-          )}
-          {selectedPlace?.lat && selectedPlace?.lng && (
-            <Marker position={[selectedPlace.lat, selectedPlace.lng]}>
-              <Popup>{selectedPlace.name}</Popup>
-            </Marker>
           )}
           {userPosition && (
             <Marker position={userPosition} icon={userIcon}>

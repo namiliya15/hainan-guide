@@ -19,7 +19,7 @@ export default function App() {
   const { session, setSession, loading, signOut } = useSession();
   const { theme, toggleTheme } = useTheme();
   const isAdmin = useIsAdmin(session);
-  const { pendingCount, unreadReplyCount, markRepliesSeen } = useFeedback(session, isAdmin);
+  const { pendingCount, unreadReplyCount, unreadUserReplyCount, markRepliesSeen } = useFeedback(session, isAdmin);
 
   const [authOpen, setAuthOpen] = useState(false);
   const [authReason, setAuthReason] = useState('');
@@ -63,6 +63,7 @@ export default function App() {
         onAddPlace={() => setAddPlaceSignal((s) => s + 1)}
         pendingCount={pendingCount}
         unreadReplyCount={unreadReplyCount}
+        unreadUserReplyCount={unreadUserReplyCount}
       />
 
       <Routes>

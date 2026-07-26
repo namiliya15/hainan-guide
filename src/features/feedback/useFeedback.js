@@ -155,8 +155,37 @@ export function useFeedback(session, isAdmin) {
     await loadMySubmissions();
   }
 
+  // Пользователь отвечает на уточняющий вопрос администратора.
+  // Это одно поле (не бесконечный тред) — если админ спросит снова,
+  // старый ответ пользователя просто заменится новым.
+  async function submitUserReply(itemType, id, text) {
+    const table = itemType === 'suggestion' ? 'place_suggestions' : 'place_reports';
+    const { error } = await supabase.from(table).update({ user_reply: text, user_reply_seen: false, updated_at: new Date() }).eq('id', id);
+    if (error) {
+      showNotice('Не получилось отправить ответ: ' + error.message);
+      return false;
+    }
+    showNotice('Ответ отправлен администратору.');
+    await loadMySubmissions();
+    return true;
+  }
+
+  // Отметить у админа все ответы пользователей прочитанными — вызывается
+  // при заходе на страницу "Входящие".
+  async function markUserRepliesSeen() {
+    if (!isAdmin) return;
+    await Promise.all([
+      supabase.from('place_suggestions').update({ user_reply_seen: true }).eq('user_reply_seen', false),
+      supabase.from('place_reports').update({ user_reply_seen: true }).eq('user_reply_seen', false),
+    ]);
+    await loadAdminInbox();
+  }
+
   const unreadReplyCount =
     mySuggestions.filter((s) => s.admin_reply && !s.reply_seen).length + myReports.filter((r) => r.admin_reply && !r.reply_seen).length;
+
+  const unreadUserReplyCount =
+    adminSuggestions.filter((s) => s.user_reply && !s.user_reply_seen).length + adminReports.filter((r) => r.user_reply && !r.user_reply_seen).length;
 
   return {
     mySuggestions,
@@ -165,6 +194,7 @@ export function useFeedback(session, isAdmin) {
     adminReports,
     pendingCount,
     unreadReplyCount,
+    unreadUserReplyCount,
     notice,
     submitSuggestion,
     submitReport,
@@ -174,5 +204,7 @@ export function useFeedback(session, isAdmin) {
     resolveReport,
     replyReport,
     markRepliesSeen,
+    submitUserReply,
+    markUserRepliesSeen,
   };
 }

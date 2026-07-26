@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { Send } from 'lucide-react';
 import { useIsAdmin } from '../hooks/useIsAdmin';
 import { useFeedback } from '../features/feedback/useFeedback';
 
@@ -9,9 +10,60 @@ const STATUS_LABEL = {
   resolved: 'Решено',
 };
 
+function ReplyThread({ item, itemType, onReply }) {
+  const [value, setValue] = useState(item.user_reply || '');
+  const [editing, setEditing] = useState(!item.user_reply);
+  const [sending, setSending] = useState(false);
+
+  if (!item.admin_reply) return null;
+
+  async function handleSend() {
+    if (!value.trim()) return;
+    setSending(true);
+    await onReply(itemType, item.id, value.trim());
+    setSending(false);
+    setEditing(false);
+  }
+
+  return (
+    <div className="mt-2 flex flex-col gap-2">
+      <p className="rounded-lg bg-lagoon/10 px-3 py-2 text-sm text-lagoon-600 dark:text-aqua">Администратор: {item.admin_reply}</p>
+
+      {!editing && item.user_reply && (
+        <div className="flex items-start justify-between gap-2 rounded-lg bg-sand-200 px-3 py-2 dark:bg-night-surface2">
+          <p className="text-sm text-slate-600 dark:text-mist">Вы: {item.user_reply}</p>
+          <button type="button" onClick={() => setEditing(true)} className="shrink-0 text-xs font-bold text-lagoon dark:text-aqua">
+            Изменить
+          </button>
+        </div>
+      )}
+
+      {editing && (
+        <div className="flex gap-2">
+          <input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="Ваш ответ администратору..."
+            className="flex-1 rounded-lg border border-sand-300 px-3 py-1.5 text-sm outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/20 dark:border-night-surface2 dark:bg-night-surface2 dark:text-white"
+          />
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={sending || !value.trim()}
+            className="inline-flex items-center gap-1 rounded-lg bg-lagoon px-3 py-1.5 text-xs font-bold text-white hover:bg-lagoon-600 disabled:opacity-60 dark:bg-aqua dark:text-night"
+          >
+            <Send size={13} />
+            Отправить
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function MySubmissionsPage({ session, onSeen }) {
   const isAdmin = useIsAdmin(session);
-  const { mySuggestions, myReports } = useFeedback(session, isAdmin);
+  const { mySuggestions, myReports, submitUserReply } = useFeedback(session, isAdmin);
 
   // Отмечаем ответы прочитанными при заходе на страницу — это обновляет
   // счётчик-точку у колокольчика в шапке (там отдельный экземпляр хука,
@@ -45,9 +97,7 @@ export function MySubmissionsPage({ session, onSeen }) {
                     {STATUS_LABEL[s.status]}
                   </span>
                 </div>
-                {s.admin_reply && (
-                  <p className="mt-2 rounded-lg bg-lagoon/10 px-3 py-2 text-sm text-lagoon-600 dark:text-aqua">Ответ администратора: {s.admin_reply}</p>
-                )}
+                <ReplyThread item={s} itemType="suggestion" onReply={submitUserReply} />
               </div>
             ))}
           </div>
@@ -66,9 +116,7 @@ export function MySubmissionsPage({ session, onSeen }) {
                     {STATUS_LABEL[r.status]}
                   </span>
                 </div>
-                {r.admin_reply && (
-                  <p className="mt-2 rounded-lg bg-lagoon/10 px-3 py-2 text-sm text-lagoon-600 dark:text-aqua">Ответ администратора: {r.admin_reply}</p>
-                )}
+                <ReplyThread item={r} itemType="report" onReply={submitUserReply} />
               </div>
             ))}
           </div>

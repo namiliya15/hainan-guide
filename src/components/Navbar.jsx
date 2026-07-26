@@ -5,10 +5,11 @@ import { Bell, Inbox, LogOut, Menu, Plus, X } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { defaultCategories } from '../data/categories';
 
-export function Navbar({ session, isAdmin, theme, onToggleTheme, onSignOut, onOpenAuth, onAddPlace, pendingCount, unreadReplyCount }) {
+export function Navbar({ session, isAdmin, theme, onToggleTheme, onSignOut, onOpenAuth, onAddPlace, pendingCount, unreadReplyCount, unreadUserReplyCount }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
   const showAddPlace = isAdmin && location.pathname === '/';
+  const inboxCount = pendingCount + unreadUserReplyCount;
 
   // Закрываем бургер-меню при переходе на другую страницу/категорию
   useEffect(() => setMenuOpen(false), [location.pathname, location.search]);
@@ -42,9 +43,9 @@ export function Navbar({ session, isAdmin, theme, onToggleTheme, onSignOut, onOp
             >
               <Inbox size={16} />
               Входящие
-              {pendingCount > 0 && (
+              {inboxCount > 0 && (
                 <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-coral text-[10px] font-bold text-white">
-                  {pendingCount > 9 ? '9+' : pendingCount}
+                  {inboxCount > 9 ? '9+' : inboxCount}
                 </span>
               )}
             </Link>
@@ -157,8 +158,8 @@ export function Navbar({ session, isAdmin, theme, onToggleTheme, onSignOut, onOp
                     <Inbox size={16} />
                     Входящие
                   </span>
-                  {pendingCount > 0 && (
-                    <span className="grid h-5 min-w-5 place-items-center rounded-full bg-coral px-1 text-[11px] font-bold text-white">{pendingCount}</span>
+                  {inboxCount > 0 && (
+                    <span className="grid h-5 min-w-5 place-items-center rounded-full bg-coral px-1 text-[11px] font-bold text-white">{inboxCount}</span>
                   )}
                 </Link>
               )}
