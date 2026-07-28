@@ -143,8 +143,9 @@ export function MapSection({ id, places, selectedPlace, isAdmin, onMapClick, onP
           scrollWheelZoom
         >
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.amap.com/" target="_blank" rel="noreferrer">高德地图 AutoNavi</a>'
+            url="https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}"
+            subdomains="1234"
           />
           {isAdmin && <MapClickHandler onPick={onMapClick} />}
           <MapFocus place={selectedPlace} userPosition={userPosition} />

@@ -1,26 +1,53 @@
-import { useState } from 'react';
-import { Send, X } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Send, Upload, X } from 'lucide-react';
 import { defaultCategories } from '../../data/categories';
 
-export function SuggestPlaceForm({ open, onClose, onSubmit, needsEmail }) {
-  const [draft, setDraft] = useState({
-    name: '',
-    chinese_name: '',
-    chinese_address: '',
-    category: 'Интересные места',
-    description: '',
-    lat: '',
-    lng: '',
-    note: '',
-    email: '',
-  });
+const EMPTY = { name: '', chinese_name: '', chinese_address: '', category: 'Интересные места', description: '', note: '', email: '', photos: null };
+
+// Координаты здесь больше не запрашиваются у пользователя — печатать точные
+// десятичные широту/долготу руки редко кто умеет и вводит верно. Точку на
+// карте теперь ставит админ при проверке (форма AdminPlaceEditForm), а тут
+// вместо этого можно приложить фото — так предложение легче оценить.
+export function SuggestPlaceForm({ open, onClose, onSubmit, onUploadImage, needsEmail }) {
+  const [draft, setDraft] = useState(EMPTY);
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [done, setDone] = useState(false);
+  const fileInputRef = useRef(null);
 
   if (!open) return null;
 
   function set(patch) {
     setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  let previewPhotos = [];
+  if (draft.photos) {
+    try {
+      previewPhotos = typeof draft.photos === 'string' ? JSON.parse(draft.photos) : draft.photos;
+    } catch {
+      previewPhotos = [];
+    }
+  }
+
+  async function handleFileSelect(e) {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+    setUploading(true);
+    const uploaded = [];
+    for (const file of files) {
+      const url = await onUploadImage(file);
+      if (url) uploaded.push(url);
+    }
+    set({ photos: JSON.stringify([...previewPhotos, ...uploaded]) });
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  function removePhoto(idx) {
+    const next = [...previewPhotos];
+    next.splice(idx, 1);
+    set({ photos: next.length ? JSON.stringify(next) : null });
   }
 
   async function handleSubmit(event) {
@@ -33,7 +60,7 @@ export function SuggestPlaceForm({ open, onClose, onSubmit, needsEmail }) {
 
   function handleClose() {
     setDone(false);
-    setDraft({ name: '', chinese_name: '', chinese_address: '', category: 'Интересные места', description: '', lat: '', lng: '', note: '', email: '' });
+    setDraft(EMPTY);
     onClose();
   }
 
@@ -90,24 +117,7 @@ export function SuggestPlaceForm({ open, onClose, onSubmit, needsEmail }) {
               <input
                 value={draft.chinese_address}
                 onChange={(e) => set({ chinese_address: e.target.value })}
-                className="w-full rounded-lg border border-sand-300 bg-white px-3 py-2 outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/20 dark:border-night-surface2 dark:bg-night-surface2 dark:text-white"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-sm font-semibold text-slate-700 dark:text-mist">Координаты (широта)</span>
-              <input
-                value={draft.lat}
-                onChange={(e) => set({ lat: e.target.value })}
-                placeholder="18.2530"
-                className="w-full rounded-lg border border-sand-300 bg-white px-3 py-2 outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/20 dark:border-night-surface2 dark:bg-night-surface2 dark:text-white"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-sm font-semibold text-slate-700 dark:text-mist">Координаты (долгота)</span>
-              <input
-                value={draft.lng}
-                onChange={(e) => set({ lng: e.target.value })}
-                placeholder="109.5236"
+                placeholder="Опишите словами, где это — точную точку админ поставит на карте сам"
                 className="w-full rounded-lg border border-sand-300 bg-white px-3 py-2 outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/20 dark:border-night-surface2 dark:bg-night-surface2 dark:text-white"
               />
             </label>
@@ -119,6 +129,27 @@ export function SuggestPlaceForm({ open, onClose, onSubmit, needsEmail }) {
                 className="min-h-20 w-full rounded-lg border border-sand-300 bg-white px-3 py-2 outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/20 dark:border-night-surface2 dark:bg-night-surface2 dark:text-white"
               />
             </label>
+
+            <div className="sm:col-span-2">
+              <span className="mb-1 block text-sm font-semibold text-slate-700 dark:text-mist">Фото (необязательно)</span>
+              <div className="mb-2 flex flex-wrap gap-2">
+                {previewPhotos.map((photo, idx) => (
+                  <div key={idx} className="relative h-16 w-16 overflow-hidden rounded border border-sand-300">
+                    <img src={photo} alt={`preview ${idx}`} className="h-full w-full object-cover" />
+                    <button type="button" onClick={() => removePhoto(idx)} className="absolute right-0 top-0 rounded-full bg-red-500 p-0.5 text-white">
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-sand-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-sand-200 dark:border-night-surface2 dark:bg-night-surface2 dark:text-mist">
+                <Upload size={16} />
+                Загрузить фото
+                <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileSelect} className="hidden" disabled={uploading} />
+              </label>
+              {uploading && <p className="mt-1 text-xs text-lagoon dark:text-aqua">Загрузка...</p>}
+            </div>
+
             {needsEmail && (
               <label className="block sm:col-span-2">
                 <span className="mb-1 block text-sm font-semibold text-slate-700 dark:text-mist">Email (чтобы админ мог ответить)</span>
@@ -132,7 +163,7 @@ export function SuggestPlaceForm({ open, onClose, onSubmit, needsEmail }) {
             )}
             <button
               type="submit"
-              disabled={sending}
+              disabled={sending || uploading}
               className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg bg-lagoon px-4 py-3 font-bold text-white hover:bg-lagoon-600 disabled:opacity-60 dark:bg-aqua dark:text-night sm:col-span-2"
             >
               <Send size={16} />

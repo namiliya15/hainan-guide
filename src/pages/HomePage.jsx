@@ -288,6 +288,7 @@ export function HomePage({ session, onRequireAuth, addPlaceSignal }) {
         open={showSuggestForm}
         onClose={() => setShowSuggestForm(false)}
         onSubmit={submitSuggestion}
+        onUploadImage={uploadPlaceImage}
         needsEmail={!session}
       />
 

@@ -58,8 +58,7 @@ export function useFeedback(session, isAdmin) {
       chinese_address: draft.chinese_address?.trim() || null,
       category: draft.category || null,
       description: draft.description?.trim() || null,
-      lat: draft.lat ? Number(draft.lat) : null,
-      lng: draft.lng ? Number(draft.lng) : null,
+      photos: draft.photos || null,
       note: draft.note?.trim() || null,
     };
     const { error } = await supabase.from('place_suggestions').insert(payload);
@@ -94,23 +93,36 @@ export function useFeedback(session, isAdmin) {
     return true;
   }
 
-  // Одобрение предложения — переносит его в основную таблицу мест.
-  async function approveSuggestion(suggestion) {
-    const { id, submitted_by, submitted_email, note, status, admin_reply, created_at, updated_at, ...placeFields } = suggestion;
+  // Публикация предложения — теперь всегда идёт из формы редактирования
+  // (админ мог поправить поля и обязательно проставить координаты кликом
+  // по карте), а не "как есть" из исходной заявки пользователя.
+  async function publishSuggestion(suggestionId, editedDraft) {
     const { error: insertError } = await supabase.from('places').insert({
       id: crypto.randomUUID(),
-      ...placeFields,
-      category: placeFields.category || 'Интересные места',
+      name: editedDraft.name.trim(),
+      chinese_name: editedDraft.chinese_name?.trim() || null,
+      chinese_address: editedDraft.chinese_address?.trim() || null,
+      category: editedDraft.category || 'Интересные места',
+      description: editedDraft.description?.trim() || null,
+      working_hours: editedDraft.working_hours?.trim() || null,
+      price_info: editedDraft.price_info?.trim() || null,
+      extra_info: editedDraft.extra_info?.trim() || null,
+      photos: editedDraft.photos || null,
+      lat: editedDraft.lat ? Number(editedDraft.lat) : null,
+      lng: editedDraft.lng ? Number(editedDraft.lng) : null,
+      amap_url: editedDraft.amap_url?.trim() || null,
+      trip_url: editedDraft.trip_url?.trim() || null,
       is_public: true,
       user_id: session?.user?.id,
     });
     if (insertError) {
-      showNotice('Ошибка переноса в места: ' + insertError.message);
-      return;
+      showNotice('Ошибка публикации: ' + insertError.message);
+      return false;
     }
-    await supabase.from('place_suggestions').update({ status: 'approved', updated_at: new Date() }).eq('id', suggestion.id);
+    await supabase.from('place_suggestions').update({ status: 'approved', updated_at: new Date() }).eq('id', suggestionId);
     showNotice('Место опубликовано и добавлено на сайт.');
     await loadAdminInbox();
+    return true;
   }
 
   async function rejectSuggestion(id, reply) {
@@ -198,7 +210,7 @@ export function useFeedback(session, isAdmin) {
     notice,
     submitSuggestion,
     submitReport,
-    approveSuggestion,
+    publishSuggestion,
     rejectSuggestion,
     replySuggestion,
     resolveReport,

@@ -46,7 +46,7 @@ export function AddPlaceForm({ draft, categories, onChange, onSubmit, onClose, i
   function removePhoto(index) {
     const currentPhotos = draft.photos ? (typeof draft.photos === 'string' ? JSON.parse(draft.photos) : draft.photos) : [];
     currentPhotos.splice(index, 1);
-    onChange({ photos: JSON.stringify(currentPhotos) });
+    onChange({ photos: currentPhotos.length ? JSON.stringify(currentPhotos) : null });
   }
 
   let previewPhotos = [];

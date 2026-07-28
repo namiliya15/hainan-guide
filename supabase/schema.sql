@@ -73,20 +73,20 @@ create policy "Anyone can read public places"
   using (is_public = true or auth.uid() = user_id);
 
 drop policy if exists "Users can insert own places" on public.places;
-create policy "Users can insert own places"
+create policy "Admin can insert places"
   on public.places for insert
-  with check (auth.uid() = user_id);
+  with check ((auth.jwt() ->> 'email') = 'namiliya15@gmail.com');
 
 drop policy if exists "Users can update own places" on public.places;
-create policy "Users can update own places"
+create policy "Admin can update places"
   on public.places for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using ((auth.jwt() ->> 'email') = 'namiliya15@gmail.com')
+  with check ((auth.jwt() ->> 'email') = 'namiliya15@gmail.com');
 
 drop policy if exists "Users can delete own places" on public.places;
-create policy "Users can delete own places"
+create policy "Admin can delete places"
   on public.places for delete
-  using (auth.uid() = user_id);
+  using ((auth.jwt() ->> 'email') = 'namiliya15@gmail.com');
 
 drop policy if exists "Users can read own favorites" on public.favorites;
 create policy "Users can read own favorites"

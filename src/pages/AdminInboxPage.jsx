@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Check, Inbox, MessageSquare, X } from 'lucide-react';
+import { Check, Edit, Eye, Inbox, MessageSquare, X } from 'lucide-react';
 import { useIsAdmin } from '../hooks/useIsAdmin';
 import { useFeedback } from '../features/feedback/useFeedback';
+import { usePlaces } from '../features/places/usePlaces';
+import { defaultCategories } from '../data/categories';
+import { AdminPlaceEditForm } from '../features/places/AdminPlaceEditForm';
+import { SuggestionPreviewModal } from '../features/feedback/SuggestionPreviewModal';
+import { hasSupabaseConfig, supabase } from '../lib/supabase';
 
 function ReplyBox({ initial, onSave, placeholder }) {
   const [value, setValue] = useState(initial || '');
@@ -26,8 +31,14 @@ function ReplyBox({ initial, onSave, placeholder }) {
 
 export function AdminInboxPage({ session }) {
   const isAdmin = useIsAdmin(session);
-  const { adminSuggestions, adminReports, notice, approveSuggestion, rejectSuggestion, replySuggestion, resolveReport, replyReport, markUserRepliesSeen } =
+  const { adminSuggestions, adminReports, notice, publishSuggestion, rejectSuggestion, replySuggestion, resolveReport, replyReport, markUserRepliesSeen } =
     useFeedback(session, isAdmin);
+  const { uploadPlaceImage, updatePlace } = usePlaces(session);
+
+  const [previewSuggestion, setPreviewSuggestion] = useState(null);
+  const [editingSuggestion, setEditingSuggestion] = useState(null);
+  const [editingPlace, setEditingPlace] = useState(null);
+  const [loadingPlaceId, setLoadingPlaceId] = useState(null);
 
   useEffect(() => {
     if (isAdmin) markUserRepliesSeen();
@@ -36,6 +47,27 @@ export function AdminInboxPage({ session }) {
 
   if (!isAdmin) {
     return <div className="mx-auto max-w-md px-4 py-24 text-center text-slate-500 dark:text-mist">Эта страница доступна только администратору.</div>;
+  }
+
+  async function handlePublish(draft) {
+    const ok = await publishSuggestion(editingSuggestion.id, draft);
+    if (ok) setEditingSuggestion(null);
+  }
+
+  async function handleUpdatePlace(draft) {
+    await updatePlace(editingPlace.id, draft);
+    setEditingPlace(null);
+  }
+
+  // Полную запись места подгружаем по требованию, когда админ жмёт
+  // "Редактировать место" у жалобы — в списке жалоб есть только id и имя.
+  async function openPlaceEditor(placeId) {
+    if (!hasSupabaseConfig || !placeId) return;
+    setLoadingPlaceId(placeId);
+    const { data } = await supabase.from('places').select('*').eq('id', placeId).maybeSingle();
+    setLoadingPlaceId(null);
+    if (data) setEditingPlace(data);
+    else alert('Не удалось найти это место — возможно, оно уже удалено.');
   }
 
   return (
@@ -74,8 +106,6 @@ export function AdminInboxPage({ session }) {
                 {s.status === 'pending' ? 'Новое' : s.status === 'approved' ? 'Опубликовано' : 'Отклонено'}
               </span>
             </div>
-            {s.description && <p className="mt-2 text-sm text-slate-600 dark:text-mist">{s.description}</p>}
-            {s.note && <p className="mt-1 text-sm italic text-slate-400">Заметка: {s.note}</p>}
             {s.user_reply && (
               <p className="mt-2 rounded-lg bg-sand-200 px-3 py-2 text-sm text-slate-600 dark:bg-night-surface2 dark:text-mist">
                 Ответ автора: {s.user_reply}
@@ -86,11 +116,19 @@ export function AdminInboxPage({ session }) {
               <div className="mt-3 flex flex-wrap gap-2 border-t border-sand-200 pt-3 dark:border-night-surface2">
                 <button
                   type="button"
-                  onClick={() => approveSuggestion(s)}
+                  onClick={() => setPreviewSuggestion(s)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-sand-300 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-sand-200 dark:border-night-surface2 dark:text-mist dark:hover:bg-night-surface2"
+                >
+                  <Eye size={13} />
+                  Просмотр
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingSuggestion(s)}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-lagoon px-3 py-1.5 text-xs font-bold text-white hover:bg-lagoon-600 dark:bg-aqua dark:text-night"
                 >
-                  <Check size={13} />
-                  Опубликовать
+                  <Edit size={13} />
+                  Редактировать и опубликовать
                 </button>
                 <button
                   type="button"
@@ -134,20 +172,57 @@ export function AdminInboxPage({ session }) {
                 Ответ автора: {r.user_reply}
               </p>
             )}
-            {r.status === 'pending' && (
-              <button
-                type="button"
-                onClick={() => resolveReport(r.id)}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-lagoon px-3 py-1.5 text-xs font-bold text-white hover:bg-lagoon-600 dark:bg-aqua dark:text-night"
-              >
-                <Check size={13} />
-                Отметить решённым
-              </button>
-            )}
+            <div className="mt-3 flex flex-wrap gap-2 border-t border-sand-200 pt-3 dark:border-night-surface2">
+              {r.place_id && (
+                <button
+                  type="button"
+                  onClick={() => openPlaceEditor(r.place_id)}
+                  disabled={loadingPlaceId === r.place_id}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-lagoon px-3 py-1.5 text-xs font-bold text-white hover:bg-lagoon-600 disabled:opacity-60 dark:bg-aqua dark:text-night"
+                >
+                  <Edit size={13} />
+                  {loadingPlaceId === r.place_id ? 'Открываем...' : 'Редактировать место'}
+                </button>
+              )}
+              {r.status === 'pending' && (
+                <button
+                  type="button"
+                  onClick={() => resolveReport(r.id)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-sand-300 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-sand-200 dark:border-night-surface2 dark:text-mist dark:hover:bg-night-surface2"
+                >
+                  <Check size={13} />
+                  Отметить решённым
+                </button>
+              )}
+            </div>
             <ReplyBox initial={r.admin_reply} onSave={(reply) => replyReport(r.id, reply)} placeholder="Ответить автору..." />
           </div>
         ))}
       </div>
+
+      <SuggestionPreviewModal suggestion={previewSuggestion} onClose={() => setPreviewSuggestion(null)} />
+
+      {editingSuggestion && (
+        <AdminPlaceEditForm
+          mode="suggestion"
+          initial={editingSuggestion}
+          categories={defaultCategories}
+          onClose={() => setEditingSuggestion(null)}
+          onSave={handlePublish}
+          onUploadImage={uploadPlaceImage}
+        />
+      )}
+
+      {editingPlace && (
+        <AdminPlaceEditForm
+          mode="place"
+          initial={editingPlace}
+          categories={defaultCategories}
+          onClose={() => setEditingPlace(null)}
+          onSave={handleUpdatePlace}
+          onUploadImage={uploadPlaceImage}
+        />
+      )}
     </div>
   );
 }
