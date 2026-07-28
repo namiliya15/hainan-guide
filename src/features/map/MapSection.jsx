@@ -7,6 +7,20 @@ import { useGeolocation } from './useGeolocation';
 
 const SANYA_CENTER = [18.2218, 109.515];
 
+// По умолчанию Leaflet добавляет в угол карты свою фирменную подпись со
+// ссылкой на leaflet.com — в последних версиях библиотеки в неё вшит флаг
+// Украины как часть их брендинга. Это никак не связано с самой картой или
+// Amap, поэтому эту часть подписи убираем (prefix: false), а copyright
+// самого источника карты (Amap) — оставляем, его стоит сохранять.
+function BareAttribution() {
+  const map = useMap();
+  useEffect(() => {
+    const control = L.control.attribution({ prefix: false, position: 'bottomright' }).addTo(map);
+    return () => control.remove();
+  }, [map]);
+  return null;
+}
+
 // Метки-"капли" своего цвета вместо стандартной синей иконки Leaflet:
 // обычная — цвет бренда (lagoon), активная (выбрана кликом по карточке
 // "На карте" ИЛИ тапом по самой метке) — коралловая.
@@ -141,7 +155,9 @@ export function MapSection({ id, places, selectedPlace, isAdmin, onMapClick, onP
           center={selectedPlace?.lat && selectedPlace?.lng ? [selectedPlace.lat, selectedPlace.lng] : SANYA_CENTER}
           zoom={13}
           scrollWheelZoom
+          attributionControl={false}
         >
+          <BareAttribution />
           <TileLayer
             attribution='&copy; <a href="https://www.amap.com/" target="_blank" rel="noreferrer">高德地图 AutoNavi</a>'
             url="https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}"
