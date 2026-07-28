@@ -15,17 +15,20 @@
 -- Как применить: Supabase Dashboard → SQL Editor → вставить целиком → Run.
 
 drop policy if exists "Users can insert own places" on public.places;
+drop policy if exists "Admin can insert places" on public.places;
 create policy "Admin can insert places"
   on public.places for insert
   with check ((auth.jwt() ->> 'email') = 'namiliya15@gmail.com');
 
 drop policy if exists "Users can update own places" on public.places;
+drop policy if exists "Admin can update places" on public.places;
 create policy "Admin can update places"
   on public.places for update
   using ((auth.jwt() ->> 'email') = 'namiliya15@gmail.com')
   with check ((auth.jwt() ->> 'email') = 'namiliya15@gmail.com');
 
 drop policy if exists "Users can delete own places" on public.places;
+drop policy if exists "Admin can delete places" on public.places;
 create policy "Admin can delete places"
   on public.places for delete
   using ((auth.jwt() ->> 'email') = 'namiliya15@gmail.com');
