@@ -112,7 +112,7 @@ export function PlaceCard({ place, favorite, isAdmin, onFavorite, onShowMap, onE
           <>
             <p
               ref={descRef}
-              className={`mt-2 text-[13.5px] leading-relaxed text-slate-600 dark:text-mist ${
+              className={`mt-2 text-[13.5px] leading-relaxed text-slate-600 dark:text-mist whitespace-pre-line ${
                 expanded ? '' : 'line-clamp-3'
               }`}
             >
