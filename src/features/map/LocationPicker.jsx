@@ -1,5 +1,6 @@
+import { useEffect } from 'react';
 import L from 'leaflet';
-import { MapContainer, Marker, TileLayer, useMapEvents } from 'react-leaflet';
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
 const SANYA_CENTER = [18.2218, 109.515];
@@ -10,6 +11,17 @@ const pickerIcon = L.divIcon({
   iconSize: [26, 26],
   iconAnchor: [13, 26],
 });
+
+// См. подробный комментарий в MapSection.jsx — убирает фирменную подпись
+// Leaflet (с флагом), оставляя только copyright самого источника карты.
+function BareAttribution() {
+  const map = useMap();
+  useEffect(() => {
+    const control = L.control.attribution({ prefix: false, position: 'bottomright' }).addTo(map);
+    return () => control.remove();
+  }, [map]);
+  return null;
+}
 
 function ClickToPick({ onPick }) {
   useMapEvents({
@@ -30,7 +42,8 @@ export function LocationPicker({ lat, lng, onChange }) {
   return (
     <div className="overflow-hidden rounded-lg border border-sand-300 dark:border-night-surface2">
       <div className="h-56">
-        <MapContainer center={position || SANYA_CENTER} zoom={position ? 15 : 11} scrollWheelZoom={false} style={{ height: '100%' }}>
+        <MapContainer center={position || SANYA_CENTER} zoom={position ? 15 : 11} scrollWheelZoom={false} style={{ height: '100%' }} attributionControl={false}>
+          <BareAttribution />
           <TileLayer
             attribution='&copy; <a href="https://www.amap.com/" target="_blank" rel="noreferrer">高德地图 AutoNavi</a>'
             url="https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}"
